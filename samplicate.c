@@ -42,7 +42,7 @@ extern int inet_aton (const char *, struct in_addr *);
 
 #define DEFAULT_SOCKBUFLEN 65536
 
-#define PORT_SEPARATOR	':'
+#define PORT_SEPARATOR	'/'
 #define FREQ_SEPARATOR	'/'
 #define TTL_SEPARATOR	','
 
@@ -158,33 +158,44 @@ parse_args (argc, argv, ctx, sctx)
   sctx->tx_delay = 0;
 
   while ((i = getopt (argc, argv, "hb:d:p:x:c:S")) != -1)
-    switch (i) {
-    case 'b': /* buflen */
-      ctx->sockbuflen = atol (optarg);
-      break;
-    case 'd': /* debug */
-      ctx->debug = atoi (optarg);
-      break;
-    case 'p': /* flow Port */
-      ctx->fport = atoi (optarg);
-      break;
-    case 'x': /* transmit delay */
-      sctx->tx_delay = atoi (optarg);
-      break;
-    case 'S': /* spoof */
-      ctx->defaultflags |= pf_SPOOF;
-      break;
-    case 'c': /* config file */
-      read_cf_file(optarg,ctx);
-      break;
-    case 'h': /* help */
-      usage (argv[0]);
-      exit (0);
-      break;
-    default:
-      usage (argv[0]);
-      exit (1);
-      break;
+    {
+      switch (i)
+	{
+	case 'b': /* buflen */
+	  ctx->sockbuflen = atol (optarg);
+	  break;
+	case 'd': /* debug */
+	  ctx->debug = atoi (optarg);
+	  break;
+	case 'p': /* flow port */
+	  ctx->fport = atoi (optarg);
+	  if (ctx->fport < 0
+	      || ctx->fport > 65535)
+	    {
+	      fprintf (stderr,
+		       "Illegal receive port %d - \
+should be between 0 and 65535\n",
+		       ctx->fport);
+	    }
+	  break;
+	case 'x': /* transmit delay */
+	  sctx->tx_delay = atoi (optarg);
+	  break;
+	case 'S': /* spoof */
+	  ctx->defaultflags |= pf_SPOOF;
+	  break;
+	case 'c': /* config file */
+	  read_cf_file(optarg,ctx);
+	  break;
+	case 'h': /* help */
+	  usage (argv[0]);
+	  exit (0);
+	  break;
+	default:
+	  usage (argv[0]);
+	  exit (1);
+	  break;
+	}
     }
 
   if (argc - optind > 0)
@@ -240,9 +251,19 @@ parse_peers (argc, argv, ctx, sctx)
       /* extract the port part */
       if (*c == PORT_SEPARATOR)
 	{
+	  int port;
 	  *c = 0;
 	  ++c;
-	  sctx->peers[i].addr.sin_port = htons (atoi(c));
+	  port = atoi(c);
+	  if (port < 0 || port > 65535)
+	    {
+	      fprintf (stderr,
+		       "Illegal destination port %d - \
+should be between 0 and 65535\n",
+		       port);
+	      return -1;
+	    }
+	  sctx->peers[i].addr.sin_port = htons (port);
 	}
       else 
 	sctx->peers[i].addr.sin_port = htons (FLOWPORT);
@@ -261,16 +282,24 @@ parse_peers (argc, argv, ctx, sctx)
 
       /* printf("Frequency: %d\n", sctx->peers[i].freq); */
 
-       /* extract the TTL part */
-       for (; (*c != TTL_SEPARATOR) && (*c); ++c); 
-TTL:   
-       if ((*c == TTL_SEPARATOR) && (*(c+1) > 0))
+      /* extract the TTL part */
+      for (; (*c != TTL_SEPARATOR) && (*c); ++c); 
+    TTL:   
+      if ((*c == TTL_SEPARATOR) && (*(c+1) > 0))
         {
           *c = 0;
           ++c;
           sctx->peers[i].ttl = atoi (c);
+	  if (sctx->peers[i].ttl < 1
+	      || sctx->peers[i].ttl > 255)
+	    {
+	      fprintf (stderr,
+		       "Illegal value %d for TTL - should be between 1 and 255.\n",
+		       sctx->peers[i].ttl);
+	      return -1;
+	    }
         }
-       else
+      else
         sctx->peers[i].ttl = DEFAULT_TTL; 
 
       /* extract the ip address part */
@@ -315,11 +344,14 @@ TTL:
 	  sctx->peers[i].fd = cooked_sock;
 	}
     }
-    if (ctx->sources == NULL) {
-	ctx->sources = sctx;
-    } else {
-    	for (ptr = ctx->sources; ptr->next != NULL; ptr = ptr->next);
-	ptr->next = sctx;
+  if (ctx->sources == NULL)
+    {
+      ctx->sources = sctx;
+    }
+  else
+    {
+      for (ptr = ctx->sources; ptr->next != NULL; ptr = ptr->next);
+      ptr->next = sctx;
     } 
   return 0;
 }
@@ -406,10 +438,13 @@ read_cf_file (file, ctx)
 	      *e = 0;
 	    }
 	  if (argc > 0) 
-	      if (parse_peers (argc, argv, ctx, sctx) == -1) {
-          	usage (argv[0]);
-          	exit (1);
-              }
+	    {
+	      if (parse_peers (argc, argv, ctx, sctx) == -1)
+		{
+		  usage (argv[0]);
+		  exit (1);
+		}
+	    }
 	}
     }
   fclose(cf);
@@ -428,10 +463,11 @@ init_samplicator (ctx)
   local_address.sin_addr.s_addr = htonl (INADDR_ANY);
   local_address.sin_port = htons (ctx->fport);
 
-  if ((ctx->fsockfd = socket (AF_INET, SOCK_DGRAM, 0)) < 0) {
-    fprintf (stderr, "socket(): %s\n", strerror (errno));
-    return -1;
-  }
+  if ((ctx->fsockfd = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
+    {
+      fprintf (stderr, "socket(): %s\n", strerror (errno));
+      return -1;
+    }
   if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_RCVBUF,
 		  (char *) &ctx->sockbuflen, sizeof ctx->sockbuflen) == -1)
     {
@@ -439,10 +475,11 @@ init_samplicator (ctx)
 	       ctx->sockbuflen, strerror (errno));
     }
   if (bind (ctx->fsockfd,
-	    (struct sockaddr*)&local_address, sizeof local_address) < 0) {
-    fprintf (stderr, "bind(): %s\n", strerror (errno));
-    return -1;
-  }
+	    (struct sockaddr*)&local_address, sizeof local_address) < 0)
+    {
+      fprintf (stderr, "bind(): %s\n", strerror (errno));
+      return -1;
+    }
   return 0;
 }
 
@@ -457,11 +494,12 @@ samplicate (ctx)
 
   /* check is there actually at least one configured data receiver */
   for (i = 0, sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
-	if(sctx->npeers > 0)  i += sctx->npeers; 
-  if (i == 0) {
-        fprintf(stderr, "You have to specify at least one receiver, exiting\n");
-        exit(1);
-  }
+    if(sctx->npeers > 0)  i += sctx->npeers; 
+  if (i == 0)
+    {
+      fprintf(stderr, "You have to specify at least one receiver, exiting\n");
+      exit(1);
+    }
 
   while (1)
     {
@@ -496,41 +534,43 @@ samplicate (ctx)
 
       for(sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
 	{
-	if ((sctx->source.s_addr == 0) || ((remote_address.sin_addr.s_addr & sctx->mask.s_addr) == sctx->source.s_addr))
-	      for (i = 0; i < sctx->npeers; ++i)
-	{
-		  if (sctx->peers[i].freqcount == 0)
-	    {
-		      if (send_pdu_to_peer (& (sctx->peers[i]), fpdu, n, &remote_address)
-		  == -1)
-		{
-		  fprintf (stderr, "sending datagram to %s:%d failed: %s\n",
-				   inet_ntoa (sctx->peers[i].addr.sin_addr),
-				   (int) ntohs (sctx->peers[i].addr.sin_port),
-			   strerror (errno));
-		}
-	      else if (ctx->debug)
-		{
-		  fprintf (stderr, "  sent to %s:%d\n",
-				   inet_ntoa (sctx->peers[i].addr.sin_addr),
-				   (int) ntohs (sctx->peers[i].addr.sin_port)); 
-		}
-		      sctx->peers[i].freqcount = sctx->peers[i].freq-1;
-	    }
+	  if ((sctx->source.s_addr == 0)
+	      || ((remote_address.sin_addr.s_addr & sctx->mask.s_addr)
+		  == sctx->source.s_addr))
+	    for (i = 0; i < sctx->npeers; ++i)
+	      {
+		if (sctx->peers[i].freqcount == 0)
+		  {
+		    if (send_pdu_to_peer (& (sctx->peers[i]), fpdu, n, &remote_address)
+			== -1)
+		      {
+			fprintf (stderr, "sending datagram to %s:%d failed: %s\n",
+				 inet_ntoa (sctx->peers[i].addr.sin_addr),
+				 (int) ntohs (sctx->peers[i].addr.sin_port),
+				 strerror (errno));
+		      }
+		    else if (ctx->debug)
+		      {
+			fprintf (stderr, "  sent to %s:%d\n",
+				 inet_ntoa (sctx->peers[i].addr.sin_addr),
+				 (int) ntohs (sctx->peers[i].addr.sin_port)); 
+		      }
+		    sctx->peers[i].freqcount = sctx->peers[i].freq-1;
+		  }
+		else
+		  {
+		    --sctx->peers[i].freqcount;
+		  }
+		if (sctx->tx_delay)
+		  usleep (sctx->tx_delay);
+	      }
 	  else
 	    {
-		      --sctx->peers[i].freqcount;
-		    }
-		  if (sctx->tx_delay)
-		    usleep (sctx->tx_delay);
-		}
-	else
+	      if (ctx->debug)
 		{
-		if (ctx->debug)
-			{
-	  		fprintf (stderr, "Not matching %s/", inet_ntoa(sctx->source));
-	  		fprintf (stderr, "%s\n", inet_ntoa(sctx->mask));
-			}
+		  fprintf (stderr, "Not matching %s/", inet_ntoa(sctx->source));
+		  fprintf (stderr, "%s\n", inet_ntoa(sctx->mask));
+		}
 	    }
 	}
     }
@@ -554,7 +594,7 @@ Supported options:\n\
 \n\
 Specifying receivers:\n\
 \n\
-  A.B.C.D[:port[/freq][,ttl]]...\n\
+  A.B.C.D[%cport[%cfreq][%cttl]]...\n\
 where:\n\
   A.B.C.D                  is the receiver's IP address\n\
   port                     is the UDP port to send to (default %d)\n\
@@ -574,6 +614,7 @@ specified in the config-file will get only packets with a matching source.\n\n\
 ",
 	   progname,
 	   FLOWPORT, (unsigned long) DEFAULT_SOCKBUFLEN,
+	   PORT_SEPARATOR, FREQ_SEPARATOR, TTL_SEPARATOR,
 	   FLOWPORT,
 	   DEFAULT_TTL);
 }
