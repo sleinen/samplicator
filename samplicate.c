@@ -24,6 +24,9 @@
 #  define memmove(d, s, n) bcopy ((s), (d), (n))
 # endif
 #endif
+#ifndef HAVE_INET_ATON
+extern int inet_aton (const char *, struct in_addr *);
+#endif
 
 #include "rawsend.h"
 
