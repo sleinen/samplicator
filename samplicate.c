@@ -14,6 +14,7 @@
 #endif
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 #if STDC_HEADERS
 # define bzero(b,n) memset(b,0,n)
 #else
@@ -32,7 +33,10 @@
 
 static int debug;
 
-static void usage(const char *);
+enum peer_flags
+{
+  pf_RAW	= 0x0001,
+};
 
 struct peer {
   int			fd;
@@ -40,48 +44,12 @@ struct peer {
   int			port;
   int			freq;
   int			freqcount;
+  enum peer_flags	flags;
 };
 
-static int
-scan_ip (const char *s, struct in_addr *out)
-{
-  long addr = 0;
-  unsigned n;
- 
-  while (1) {
- 
-    /* n is the nibble */
-    n = 0;
- 
-    /* nibble's are . bounded */
-    while (*s && *s != '.')
-      {
-	if (*s < '0' || *s > '9')
-	  {
-	    return -1;
-	  }
-	n = n * 10 + *s++ - '0';
-	if (n > 255)
-	  {
-	    return -1;
-	  }
-      }
- 
-    /* shift in the nibble */
-    addr <<=8;
-    addr |= n & 0xff;
- 
-    /* return on end of string */
-    if (!*s)
-      {
-	out->s_addr = htonl (addr);
-	return 0;
-      }
- 
-    /* skip the . */
-    ++s;
-  } /* forever */
-}
+static void usage(const char *);
+static int send_pdu_to_peer (struct peer *, const void *, size_t,
+			     struct sockaddr_in *);
 
 /* Work around a GCC compatibility problem with respect to the
    inet_ntoa() system function */
@@ -91,7 +59,7 @@ scan_ip (const char *s, struct in_addr *out)
 static const char *
 my_inet_ntoa (const struct in_addr *in)
 {
-  unsigned a = in->s_addr;
+  unsigned a = ntohl (in->s_addr);
   static char buffer[16];
   sprintf (buffer, "%d.%d.%d.%d",
 	   (a >> 24) & 0xff,
@@ -116,12 +84,13 @@ char **argv;
   struct peer *peers;
   char tmp_buf[256];
   char *c;
+  int raw_p = 0;
 
   fport = FLOWPORT;
   debug = 0;
   tx_delay = 0;
 
-  while ((i = getopt (argc, argv, "hd:p:x:")) != -1)
+  while ((i = getopt (argc, argv, "hd:p:x:r")) != -1)
     switch (i) {
     case 'd': /* debug */
       debug = atoi (optarg);
@@ -131,6 +100,9 @@ char **argv;
       break;
     case 'x': /* transmit delay */
       tx_delay = atoi (optarg);
+      break;
+    case 'r': /* raw */
+      raw_p = 1;
       break;
     case 'h': /* help */
       usage (argv[0]);
@@ -156,6 +128,10 @@ char **argv;
   /* fill in peer entries */
   for (i = optind, n = 0; i < argc; ++i, ++n)
     {
+      if (raw_p)
+	{
+	  peers[n].flags |= pf_RAW;
+	}
       if (strlen (argv[i]) > 255)
 	{
 	  fprintf (stderr, "ouch!\n");
@@ -171,10 +147,10 @@ char **argv;
 	{
 	  *c = 0;
 	  ++c;
-	  peers[n].addr.sin_port = atoi(c);
+	  peers[n].addr.sin_port = htons (atoi(c));
 	}
       else 
-	peers[n].addr.sin_port = FLOWPORT;
+	peers[n].addr.sin_port = htons (FLOWPORT);
 
       /* extract the frequency part */
       for (; (*c != '/') && (*c); ++c)
@@ -192,7 +168,7 @@ char **argv;
       /* printf("Frequency: %d\n", peers[n].freq); */
 
       /* extract the ip address part */
-      if (scan_ip (tmp_buf, & peers[n].addr.sin_addr) == -1)
+      if (inet_aton (tmp_buf, & peers[n].addr.sin_addr) == 0)
 	{
 	  fprintf (stderr, "parsing IP address failed\n");
 	  exit (1);
@@ -200,11 +176,26 @@ char **argv;
 
       peers[n].addr.sin_family = AF_INET;
 
-      if ((peers[n].fd = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
-	{
-	  fprintf (stderr, "socket(): %s\n", strerror(errno));
-	  exit (1);
-	}
+      if (peers[n].flags & pf_RAW) {
+	if ((peers[n].fd = make_raw_udp_socket (& peers[n].addr)) < 0)
+	  {
+	    if (errno == EPERM)
+	      {
+		fprintf (stderr, "Not enough privilege for -r option---try again as root.\n");
+	      }
+	    else
+	      {
+		fprintf (stderr, "creating raw socket: %s\n", strerror(errno));
+	      }
+	    exit (1);
+	  }
+      } else {
+	if ((peers[n].fd = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
+	  {
+	    fprintf (stderr, "socket(): %s\n", strerror(errno));
+	    exit (1);
+	  }
+      }
     }
 
   /* setup to receive flows */
@@ -225,9 +216,9 @@ char **argv;
   while (1)
     {
       len = sizeof remote_address;
-      if ((n = recvfrom(fsockfd, (char*)fpdu,
-			sizeof (fpdu), 0,
-			(struct sockaddr*) &remote_address, &len)) == -1) {
+      if ((n = recvfrom (fsockfd, (char*)fpdu,
+			 sizeof (fpdu), 0,
+			 (struct sockaddr*) &remote_address, &len)) == -1) {
 	fprintf(stderr, "recvfrom(): %s\n", strerror(errno));
 	exit (1);
       }
@@ -248,9 +239,7 @@ char **argv;
 	{
 	  if (peers[i].freqcount == 0)
 	    {
-	      if (sendto (peers[i].fd, (char*)fpdu, n, 0,
-			  (struct sockaddr*)&peers[i].addr,
-			  sizeof (struct sockaddr_in))
+	      if (send_pdu_to_peer (& (peers[i]), fpdu, n, &remote_address)
 		  == -1)
 		{
 		  fprintf (stderr, "sendto(%s:%d) failed: %s",
@@ -287,6 +276,7 @@ Supported options:\n\
   -d <level>               debug level\n\
   -p <port>                UDP port to accept flows on (default %d)\n\
   -x <delay>               transmit delay in microseconds\n\
+  -r                       use raw socket to maintain source addresses\n\
   -h                       print this usage message and exit\n\
 \n\
 Specifying receivers:\n\
@@ -298,4 +288,24 @@ where:
   freq                     is the sampling rate (default 1)\n\
 ",
 	   progname, FLOWPORT, FLOWPORT);
+}
+
+static int
+send_pdu_to_peer (peer, fpdu, length, source_addr)
+     struct peer * peer;
+     const void * fpdu;
+     size_t length;
+     struct sockaddr_in * source_addr;
+{
+  if (peer->flags & pf_RAW)
+    {
+      return raw_send_from_to (peer->fd, fpdu, length,
+			       source_addr, &peer->addr);
+    }
+  else
+    {
+      return sendto (peer->fd, (char*) fpdu, length, 0,
+		     (struct sockaddr*) &peer->addr,
+		     sizeof (struct sockaddr_in));
+    }
 }
