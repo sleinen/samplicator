@@ -31,6 +31,7 @@ Where each <option> can be one of
 	-p <port>	to set the UDP port on which to listen for
 			incoming packets (default 2000)
 	-b <buflen>	size of receive buffer (default 65536)
+	-c configfile	specify a config file to read
 	-x <delay>	to specify a transmission delay in units of
 			microseconds
 	-S		maintain (spoof) source addresses
@@ -43,3 +44,14 @@ and each <destination> should be specified as
 	<port>		port UDP number of the receiver (default 2000)
 	<freq>		number of received datagrams between successive
 			copied datagrams for this receiver.
+
+Config file format:
+
+  a.b.c.d[/e.f.g.h]: receiver ...
+where:
+  a.b.c.d		is the senders IP address
+  e.f.g.h		is a mask to apply to the sender (default 255.255.255.255)
+  receiver		see above.
+
+Receivers specified on the command line will get all packets, those
+specified in the config-file will get only packets with a matching source.
