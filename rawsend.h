@@ -10,5 +10,3 @@ extern int raw_send_from_to (int,
 			     const void *, size_t,
 			     struct sockaddr_in *,
 			     struct sockaddr_in *);
-
-#define MAX_IP_DATAGRAM_SIZE 1500
