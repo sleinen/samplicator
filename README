@@ -1,4 +1,4 @@
-			   UDP Samplicator
+			   UDP Samplicator		-*- text -*-
 			   ===============
 
 This small program receives UDP datagrams on a given port, and resends
@@ -20,21 +20,7 @@ This package is distributed under
 
 			     INSTALLATION
 
-This distribution uses GNU configure for portability and flexibility
-of installation.  You must configure the program for your system
-before you can compile it using make:
-
-	$ ./configure
-	$ make
-
-The program can then be installed (under /usr/local/bin by default)
-using "make install":
-
-	$ make install
-
-The configure script accepts many arguments, some of which may even be
-useful.  Using "./configure --prefix ..." you can specify a directory
-other than /usr/local to be used as an installation destination.
+See the `INSTALL' file.
 
 				USAGE
 
@@ -49,6 +35,7 @@ Where each <option> can be one of
 			incoming packets
 	-x <delay>	to specify a transmission delay in units of
 			microseconds
+	-r		use raw socket to maintain source addresses
 	-h		to print a usage message and exit
 
 and each <destination> should be specified as
