@@ -315,7 +315,7 @@ samplicate (ctx)
 	      if (send_pdu_to_peer (& (ctx->peers[i]), fpdu, n, &remote_address)
 		  == -1)
 		{
-		  fprintf (stderr, "sending datagram failed: %s\n",
+		  fprintf (stderr, "sending datagram to %s:%d failed: %s\n",
 			   inet_ntoa (ctx->peers[i].addr.sin_addr),
 			   (int) ntohs (ctx->peers[i].addr.sin_port),
 			   strerror (errno));
@@ -402,4 +402,5 @@ make_cooked_udp_socket (sockbuflen)
 		   sockbuflen, strerror (errno));
 	}
     }
+  return s;
 }
