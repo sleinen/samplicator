@@ -1,5 +1,13 @@
 The orginal author of the package could not be identified with
-absolute certainty.  David Harmelin <david.harmelin@dante.org.uk> of
-DANTE has added the sampling feature, and Simon Leinen
-<simon@switch.ch> removed lots of unused code and packaged the program
-for easier compilation/installation.
+absolute certainty.  He or she is believed to be from the Italian
+research networking community.
+
+David Harmelin <david.harmelin@dante.org.uk> of DANTE has added the
+sampling feature.
+
+Simon Leinen <simon@switch.ch> removed lots of unused code,
+implemented source address spoofing (tested mainly under Solaris) and
+packaged the program for easier compilation/installation.
+
+Otmar Lendl <O.Lendl@KPNQwest.at> added source-dependent rules
+and config-file parsing.
