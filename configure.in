@@ -1,4 +1,4 @@
-AC_INIT(replicate.c)
+AC_INIT(samplicate.c)
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_CHECK_LIB(nsl,gethostbyname)
