@@ -1,10 +1,11 @@
 AC_INIT(samplicate.c)
-AM_INIT_AUTOMAKE(samplicate, 1.0)
+AM_INIT_AUTOMAKE(samplicate, 1.1)
+AM_CONFIG_HEADER(config.h)
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_CHECK_LIB(nsl,gethostbyname)
 AC_CHECK_LIB(socket,bind)
 AC_STDC_HEADERS
-AC_CHECK_HEADERS(stdlib.h unistd.h arpa/inet.h)
-AC_CHECK_FUNCS(strchr memcpy)
+AC_CHECK_HEADERS(stdlib.h unistd.h arpa/inet.h netinet/in_systm.h)
+AC_CHECK_FUNCS(memcpy)
 AC_OUTPUT(Makefile)
