@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netinet/ip.h>
+#include <sys/uio.h>
 
 /* make uh_... slot names available under Linux */
 #define __FAVOR_BSD 1
@@ -62,10 +63,6 @@ ip_header_checksum (const void * header)
   return ~csum;
 }
 
-static char *msgbuf = 0;
-static size_t msgbuflen = 0;
-static size_t next_alloc_size = 1;
-
 int
 raw_send_from_to (s, msg, msglen, saddr, daddr)
      int s;
@@ -82,12 +79,22 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   struct ip ih;
   struct udphdr uh;
 
+#ifdef HAVE_SYS_UIO_H
+  struct msghdr mh;
+  struct iovec iov[3];
+#else /* not HAVE_SYS_UIO_H */
+  static char *msgbuf = 0;
+  static size_t msgbuflen = 0;
+  static size_t next_alloc_size = 1;
+#endif /* not HAVE_SYS_UIO_H */
+
   uh.uh_sport = saddr->sin_port;
   uh.uh_dport = daddr->sin_port;
   uh.uh_ulen = htons (msglen + sizeof uh);
   uh.uh_sum = 0;
 
   length = msglen + sizeof uh + sizeof ih;
+#ifndef HAVE_SYS_UIO_H
   if (length > msgbuflen)
     {
       if (length > MAX_IP_DATAGRAM_SIZE)
@@ -106,6 +113,7 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
       msgbuflen = next_alloc_size;
       next_alloc_size *= 2;
     }
+#endif /* not HAVE_SYS_UIO_H */
   ih.ip_hl = (sizeof ih+3)/4;
   ih.ip_v = 4;
   ih.ip_tos = 0;
@@ -119,16 +127,33 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   ih.ip_dst.s_addr = daddr->sin_addr.s_addr;
   ih.ip_sum = htons (ip_header_checksum (&ih));
 
-  memcpy (msgbuf+sizeof ih+sizeof uh, msg, msglen);
-  memcpy (msgbuf+sizeof ih, & uh, sizeof uh);
-  memcpy (msgbuf, & ih, sizeof ih);
-
   dest_a.sin_family = AF_INET;
   dest_a.sin_port = IPPROTO_UDP;
   dest_a.sin_addr.s_addr = htonl (0x7f000001);
 
+#ifdef HAVE_SYS_UIO_H
+  iov[0].iov_base = &ih;
+  iov[0].iov_len = sizeof ih;
+  iov[1].iov_base = &uh;
+  iov[1].iov_len = sizeof uh;
+  iov[2].iov_base = (char *) msg;
+  iov[2].iov_len = msglen;
+  mh.msg_name = (struct sockaddr *)&dest_a;
+  mh.msg_namelen = sizeof dest_a;
+  mh.msg_iov = iov;
+  mh.msg_iovlen = 3;
+  mh.msg_control = 0;
+  mh.msg_controllen = 0;
+
+  if (sendmsg (s, &mh, 0) == -1)
+#else /* not HAVE_SYS_UIO_H */
+  memcpy (msgbuf+sizeof ih+sizeof uh, msg, msglen);
+  memcpy (msgbuf+sizeof ih, & uh, sizeof uh);
+  memcpy (msgbuf, & ih, sizeof ih);
+
   if (sendto (s, msgbuf, length, flags,
 	      (struct sockaddr *)&dest_a, sizeof dest_a) == -1)
+#endif /* not HAVE_SYS_UIO_H */
     {
       if (getsockopt (s, SOL_SOCKET, SO_ERROR, &sockerr, &sockerr_size) == 0)
 	{
