@@ -132,9 +132,9 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   dest_a.sin_addr.s_addr = htonl (0x7f000001);
 
 #ifdef HAVE_SYS_UIO_H
-  iov[0].iov_base = &ih;
+  iov[0].iov_base = (char *) &ih;
   iov[0].iov_len = sizeof ih;
-  iov[1].iov_base = &uh;
+  iov[1].iov_base = (char *) &uh;
   iov[1].iov_len = sizeof uh;
   iov[2].iov_base = (char *) msg;
   iov[2].iov_len = msglen;
