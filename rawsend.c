@@ -59,14 +59,12 @@ ip_header_checksum (const void * header)
 }
 
 int
-raw_send_from_to (s, msg, msglen, saddr, sal, daddr, dal)
+raw_send_from_to (s, msg, msglen, saddr, daddr)
      int s;
      const void * msg;
      size_t msglen;
      struct sockaddr_in *saddr;
-     size_t sal;
      struct sockaddr_in *daddr;
-     size_t dal;
 {
   char message[MAX_IP_DATAGRAM_SIZE];
   int length;
@@ -146,4 +144,11 @@ raw_send_from_to (s, msg, msglen, saddr, sal, daddr, dal)
 	  exit (1);
 	}
     }
+}
+
+extern int
+make_raw_udp_socket (dest)
+     struct sockaddr_in *dest;
+{
+  return socket (PF_INET, SOCK_RAW, IPPROTO_RAW);
 }
