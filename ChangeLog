@@ -1,3 +1,62 @@
+2001-09-18  Simon Leinen  <simon@limmat.switch.ch>
+
+	* samplicate.c: New parsing code from Vladimir A. Jakovenko.
+
+	* rawsend.h (DEFAULT_TTL): Moved here from `rawsend.c'.
+
+	(raw_send_from_to): Take additional `ttl' argument.
+
+	* rawsend.c (DEFAULT_TTL): Moved to `rawsend.h'.
+
+	(raw_send_from_to): Take additional `ttl' argument.
+
+2001-09-04  Simon Leinen  <simon@limmat.switch.ch>
+
+	* rawsend.c: Suppress a few type warnings on older systems.
+
+2001-09-02  Simon Leinen  <simon@limmat.switch.ch>
+
+	* samplicate.c: Include <ctype.h> if system has it.
+
+	(parse_peers, init_samplicator): Changed to return -1 rather than
+	exit() on errors.
+
+	* rawsend.c (make_raw_udp_socket):
+	Set IP_HDRINCL on systems that define it.
+
+	* NEWS: Noted BSD spoofing patch.
+
+	Added pointer to the README for Otmar's patch.
+
+	* configure.in (AC_INIT): Version 1.3.1.
+
+	(AC_CHECK_HEADERS): Added ctype.h.
+
+	* AUTHORS: Added acknowledgement to Vladimir Jakovenko.
+
+2001-07-24  Simon Leinen  <simon@limmat.switch.ch>
+
+	* samplicate.c: No longer include <strings.h> by default.
+
+	(read_cf_file): Use strchr() rather than index().
+
+	Re-indented.
+
+	* configure.in: Check for `strchr'.
+
+	* rawsend.c (raw_send_from_to): Set the destination address.
+
+	* configure.in: Version 1.2.1 -> 1.3.0.
+
+	* README: Document -c option and configuration file format (from
+	Otmar Lendl).
+
+	* NEWS: Document 1.3 changes: `-c' option.
+
+	* AUTHORS: Better layout.
+
+	Added Otmar Lendl.
+
 2001-07-24  Simon Leinen  <simon@limmat.switch.ch>
 
 	* samplicate.c: No longer include <strings.h> by default.
