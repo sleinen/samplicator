@@ -18,7 +18,7 @@
    int			port;
    int			freq;
    int			freqcount;
-+  unsigned char		ttl;
++  int			ttl;
    enum peer_flags	flags;
  };
  
@@ -44,7 +44,7 @@
    ctx->fport = FLOWPORT;
    ctx->debug = 0;
    ctx->sources = NULL;
-+  /* lets imagine, that command-line supplied peers want to get all data */
++  /* assume that command-line supplied peers want to get all data */
 +  sctx->source.s_addr = 0;
 +  sctx->mask.s_addr = 0;
 +
@@ -108,7 +108,7 @@
 +        {
 +          *c = 0;
 +          ++c;
-+          sctx->peers[i].ttl = (unsigned char) atoi(c);
++          sctx->peers[i].ttl = atoi (c);
 +        }
 +       else
 +        sctx->peers[i].ttl = DEFAULT_TTL; 
@@ -172,11 +172,11 @@
    struct source_context *sctx;
    int i, len, n;
  
-+  /* check is there actualy at least one configured data receiver */
++  /* check is there actually at least one configured data receiver */
 +  for (i = 0, sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
 +	if(sctx->npeers > 0)  i += sctx->npeers; 
 +  if (i == 0) {
-+        fprintf(stderr, "You have to specify at least on receiver, exiting\n");
++        fprintf(stderr, "You have to specify at least one receiver, exiting\n");
 +        exit(1);
 +  }
 +
@@ -190,7 +190,7 @@
        for(sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
  	{
 -	if ((remote_address.sin_addr.s_addr & sctx->mask.s_addr) == sctx->source.s_addr)
-+	if ((sctx->source.s_addr == 0 ) || ((remote_address.sin_addr.s_addr & sctx->mask.s_addr) == sctx->source.s_addr))
++	if ((sctx->source.s_addr == 0) || ((remote_address.sin_addr.s_addr & sctx->mask.s_addr) == sctx->source.s_addr))
  	      for (i = 0; i < sctx->npeers; ++i)
  	{
  		  if (sctx->peers[i].freqcount == 0)
@@ -253,7 +253,7 @@
       size_t msglen;
       struct sockaddr_in *saddr;
       struct sockaddr_in *daddr;
-+     unsigned char ttl;
++     int ttl;
  {
    int length;
    int sockerr;
@@ -284,4 +284,4 @@
  			     struct sockaddr_in *,
 -			     struct sockaddr_in *);
 +			     struct sockaddr_in *,
-+                             unsigned char);
++			     int);
