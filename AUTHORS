@@ -11,3 +11,7 @@ packaged the program for easier compilation/installation.
 
 Otmar Lendl <O.Lendl@KPNQwest.at> added source-dependent rules
 and config-file parsing.
+
+Vladimir A. Jakovenko <vovik@lucky.net> contributed a patch that makes
+source address spoofing work under BSD-derived systems such as FreeBSD
+and OpenBSD.  These require an additional socket option (IP_HDRINCL).
