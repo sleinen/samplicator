@@ -138,12 +138,12 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   iov[1].iov_len = sizeof uh;
   iov[2].iov_base = (char *) msg;
   iov[2].iov_len = msglen;
+
+  bzero ((char *) &mh, sizeof mh);
   mh.msg_name = (struct sockaddr *)&dest_a;
   mh.msg_namelen = sizeof dest_a;
   mh.msg_iov = iov;
   mh.msg_iovlen = 3;
-  mh.msg_control = 0;
-  mh.msg_controllen = 0;
 
   if (sendmsg (s, &mh, 0) == -1)
 #else /* not HAVE_SYS_UIO_H */
