@@ -19,6 +19,9 @@
 # define bzero(b,n) memset(b,0,n)
 #else
 # include <strings.h>
+# ifndef HAVE_STRCHR
+#  define strchr index
+# endif
 # ifndef HAVE_MEMCPY
 #  define memcpy(d, s, n) bcopy ((s), (d), (n))
 #  define memmove(d, s, n) bcopy ((s), (d), (n))
@@ -36,6 +39,9 @@ extern int inet_aton (const char *, struct in_addr *);
 
 #define DEFAULT_SOCKBUFLEN 65536
 
+#define MAX_PEERS 100
+#define MAX_LINELEN 1000
+
 enum peer_flags
 {
   pf_SPOOF	= 0x0001,
@@ -51,20 +57,31 @@ struct peer {
 };
 
 struct samplicator_context {
-  struct peer	      *	peers;
-  unsigned		npeers;
+  struct source_context *sources;
   int			fport;
-  unsigned		tx_delay;
   long			sockbuflen;
   int			debug;
+  enum peer_flags	defaultflags;
 
   int			fsockfd;
+};
+
+
+struct source_context {
+  struct source_context *next;
+  struct in_addr	source;
+  struct in_addr	mask;
+  struct peer	      *	peers;
+  unsigned		npeers;
+  unsigned		tx_delay;
+  int			debug;
 };
 
 static void usage(const char *);
 static int send_pdu_to_peer (struct peer *, const void *, size_t,
 			     struct sockaddr_in *);
-static int parse_args (int, char **, struct samplicator_context *);
+static int parse_args (int, char **, struct samplicator_context *, struct source_context *);
+static int parse_peers (int, char **, struct samplicator_context *, struct source_context *);
 static int init_samplicator (struct samplicator_context *);
 static int samplicate (struct samplicator_context *);
 static int make_cooked_udp_socket (long);
@@ -92,33 +109,37 @@ int argc;
 char **argv;
 {
   struct samplicator_context ctx;
+  struct source_context cmd_line;
 
-  parse_args (argc, argv, &ctx);
+  cmd_line.source.s_addr = 0;
+  cmd_line.mask.s_addr = 0;
+  ctx.sources = &cmd_line;
+
+  cmd_line.next = (struct source_context *) NULL;
+
+  parse_args (argc, argv, &ctx, &cmd_line);
   init_samplicator (&ctx);
   samplicate (&ctx);
 }
 
 static int
-parse_args (argc, argv, ctx)
+parse_args (argc, argv, ctx, sctx)
      int argc;
      char **argv;
      struct samplicator_context *ctx;
+     struct source_context *sctx;
 {
   extern char *optarg;
   extern int errno, optind;
-  char tmp_buf[256];
-  char *c;
-  int spoof_p = 0;
-  int raw_sock = -1;
-  int cooked_sock = -1;
-  int i, n;
+  int i;
 
   ctx->sockbuflen = DEFAULT_SOCKBUFLEN;
   ctx->fport = FLOWPORT;
   ctx->debug = 0;
-  ctx->tx_delay = 0;
+  ctx->sources = NULL;
+  sctx->tx_delay = 0;
 
-  while ((i = getopt (argc, argv, "hb:d:p:x:S")) != -1)
+  while ((i = getopt (argc, argv, "hb:d:p:x:c:S")) != -1)
     switch (i) {
     case 'b': /* buflen */
       ctx->sockbuflen = atol (optarg);
@@ -130,10 +151,13 @@ parse_args (argc, argv, ctx)
       ctx->fport = atoi (optarg);
       break;
     case 'x': /* transmit delay */
-      ctx->tx_delay = atoi (optarg);
+      sctx->tx_delay = atoi (optarg);
       break;
     case 'S': /* spoof */
-      spoof_p = 1;
+      ctx->defaultflags |= pf_SPOOF;
+      break;
+    case 'c': /* config file */
+      read_cf_file(optarg,ctx);
       break;
     case 'h': /* help */
       usage (argv[0]);
@@ -145,24 +169,40 @@ parse_args (argc, argv, ctx)
       break;
     }
 
-  /* allocate argc - optind peer entries */
-  ctx->npeers = argc - optind;
+  if ( argc - optind > 0 )
+    parse_peers (argc - optind, argv + optind, ctx, sctx);
 
-  if (!(ctx->peers = (struct peer*) malloc (ctx->npeers * sizeof (struct peer)))) {
+}
+
+static int
+parse_peers (argc, argv, ctx, sctx)
+     int argc;
+     char **argv;
+     struct samplicator_context *ctx;
+     struct source_context *sctx;
+{
+  int i;
+  char tmp_buf[256];
+  static int cooked_sock = -1;
+  static int raw_sock = -1;
+  char *c;
+
+  /* allocate for argc peer entries */
+  sctx->npeers = argc;
+
+  if (!(sctx->peers = (struct peer*) malloc (sctx->npeers * sizeof (struct peer)))) {
     fprintf(stderr, "malloc(): failed.\n");
     exit (1);
   }
 
   /* zero out malloc'd memory */
-  bzero(ctx->peers, ctx->npeers*sizeof (struct peer));
+  bzero(sctx->peers, sctx->npeers*sizeof (struct peer));
 
   /* fill in peer entries */
-  for (i = optind, n = 0; i < argc; ++i, ++n)
+  for (i = 0; i < argc; ++i)
     {
-      if (spoof_p)
-	{
-	  ctx->peers[n].flags |= pf_SPOOF;
-	}
+      sctx->peers[i].flags = ctx->defaultflags;
+	
       if (strlen (argv[i]) > 255)
 	{
 	  fprintf (stderr, "ouch!\n");
@@ -178,10 +218,10 @@ parse_args (argc, argv, ctx)
 	{
 	  *c = 0;
 	  ++c;
-	  ctx->peers[n].addr.sin_port = htons (atoi(c));
+	  sctx->peers[i].addr.sin_port = htons (atoi(c));
 	}
       else 
-	ctx->peers[n].addr.sin_port = htons (FLOWPORT);
+	sctx->peers[i].addr.sin_port = htons (FLOWPORT);
 
       /* extract the frequency part */
       for (; (*c != '/') && (*c); ++c)
@@ -190,24 +230,24 @@ parse_args (argc, argv, ctx)
 	{
 	  *c = 0;
 	  ++c;
-	  ctx->peers[n].freq = atoi(c);
+	  sctx->peers[i].freq = atoi(c);
 	}
       else
-	ctx->peers[n].freq = 1;
-      ctx->peers[n].freqcount = 0;
+	sctx->peers[i].freq = 1;
+      sctx->peers[i].freqcount = 0;
 
-      /* printf("Frequency: %d\n", ctx->peers[n].freq); */
+      /* printf("Frequency: %d\n", sctx->peers[i].freq); */
 
       /* extract the ip address part */
-      if (inet_aton (tmp_buf, & ctx->peers[n].addr.sin_addr) == 0)
+      if (inet_aton (tmp_buf, & sctx->peers[i].addr.sin_addr) == 0)
 	{
-	  fprintf (stderr, "parsing IP address failed\n");
+	  fprintf (stderr, "parsing IP address (%s) failed\n", tmp_buf);
 	  exit (1);
 	}
 
-      ctx->peers[n].addr.sin_family = AF_INET;
+      sctx->peers[i].addr.sin_family = AF_INET;
 
-      if (ctx->peers[n].flags & pf_SPOOF)
+      if (sctx->peers[i].flags & pf_SPOOF)
 	{
 	  if (raw_sock == -1)
 	    {
@@ -224,7 +264,7 @@ parse_args (argc, argv, ctx)
 		  exit (1);
 		}
 	    }
-	  ctx->peers[n].fd = raw_sock;
+	  sctx->peers[i].fd = raw_sock;
 	}
       else
 	{
@@ -237,9 +277,100 @@ parse_args (argc, argv, ctx)
 		  exit (1);
 		}
 	    }
-	  ctx->peers[n].fd = cooked_sock;
+	  sctx->peers[i].fd = cooked_sock;
 	}
     }
+}
+
+read_cf_file(file, ctx)
+char *file;
+struct samplicator_context *ctx;
+{
+  FILE *cf;
+  char tmp_s[MAX_LINELEN];
+  int argc;
+  char *argv[MAX_PEERS];
+  char *c,*slash,*e;
+  struct source_context *sctx;
+
+  if ((cf = fopen(file,"r")) == NULL)
+    {
+      fprintf(stderr, "read_cf_file: cannot open %s. Aborting.\n",file);
+      exit(1);
+    }
+
+  while (!feof(cf))
+    {
+      fgets(tmp_s, MAX_LINELEN - 1, cf);
+	
+      if (c = strchr(tmp_s, '#'))
+	continue;
+	
+      /* lines look like this:
+
+      ipadd[/mask]: dest/port dest2/port2 ...
+
+      */
+	
+      if (c = strchr(tmp_s, ':'))
+	{
+	  *c++ = 0;
+
+	  sctx = calloc(1, sizeof(struct source_context));
+	  if (slash = strchr(tmp_s, '/'))
+	    {
+	      *slash++ = 0;
+		
+	      /* fprintf (stderr, "parsing IP address mask (%s)\n",slash); */
+	      if (inet_aton (slash, &(sctx->mask)) == 0)
+		{
+             	  fprintf (stderr, "parsing IP address mask (%s) failed\n",slash);
+            	  exit (1);
+		}
+	    }
+	  else
+	    {
+	      inet_aton ("255.255.255.255", &(sctx->mask));
+	    }
+	  /* fprintf (stderr, "parsing IP address (%s)\n",tmp_s); */
+  	  if (inet_aton (tmp_s, &(sctx->source)) == 0)
+            {
+	      fprintf (stderr, "parsing IP address (%s) failed\n",tmp_s);
+	      exit (1);
+	    }
+
+	  /*	
+	    fprintf (stderr, "parsed into %s/",
+	    inet_ntoa(sctx->source));
+	    fprintf (stderr, "%s\n",
+	    inet_ntoa(sctx->mask));
+	  */
+
+	  argc = 0;
+	  while (*c != 0)
+	    {
+	      while ( (*c != 0) && isspace(*c))  
+		c++;
+	      if (*c == 0 ) break;
+
+	      e = c;
+	      while( (*e != 0) && !isspace(*e))
+		e++;
+	      argv[argc++] = c;
+	      c = e;
+	      if (*c != 0)
+		c++;
+	      *e = 0;
+	    }
+	  if (argc > 0) 
+	    {
+	      parse_peers (argc, argv, ctx, sctx);
+	      sctx->next = ctx->sources;
+	      ctx->sources = sctx;
+	    }
+	}
+    }
+  fclose(cf);
 }
 
 static int
@@ -277,6 +408,7 @@ samplicate (ctx)
 {
   unsigned char fpdu[PDU_SIZE];
   struct sockaddr_in remote_address;
+  struct source_context *sctx;
   int i, len, n;
 
   while (1)
@@ -308,32 +440,46 @@ samplicate (ctx)
 		   inet_ntoa (remote_address.sin_addr),
 		   (int) ntohs (remote_address.sin_port));
 	}
-      for (i = 0; i < ctx->npeers; ++i)
+
+
+      for(sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
 	{
-	  if (ctx->peers[i].freqcount == 0)
+	if ((remote_address.sin_addr.s_addr & sctx->mask.s_addr) == sctx->source.s_addr)
+	      for (i = 0; i < sctx->npeers; ++i)
+	{
+		  if (sctx->peers[i].freqcount == 0)
 	    {
-	      if (send_pdu_to_peer (& (ctx->peers[i]), fpdu, n, &remote_address)
+		      if (send_pdu_to_peer (& (sctx->peers[i]), fpdu, n, &remote_address)
 		  == -1)
 		{
 		  fprintf (stderr, "sending datagram to %s:%d failed: %s\n",
-			   inet_ntoa (ctx->peers[i].addr.sin_addr),
-			   (int) ntohs (ctx->peers[i].addr.sin_port),
+				   inet_ntoa (sctx->peers[i].addr.sin_addr),
+				   (int) ntohs (sctx->peers[i].addr.sin_port),
 			   strerror (errno));
 		}
 	      else if (ctx->debug)
 		{
 		  fprintf (stderr, "  sent to %s:%d\n",
-			   inet_ntoa (ctx->peers[i].addr.sin_addr),
-			   (int) ntohs (ctx->peers[i].addr.sin_port)); 
+				   inet_ntoa (sctx->peers[i].addr.sin_addr),
+				   (int) ntohs (sctx->peers[i].addr.sin_port)); 
 		}
-	      ctx->peers[i].freqcount = ctx->peers[i].freq-1;
+		      sctx->peers[i].freqcount = sctx->peers[i].freq-1;
 	    }
 	  else
 	    {
-	      --ctx->peers[i].freqcount;
+		      --sctx->peers[i].freqcount;
+		    }
+		  if (sctx->tx_delay)
+		    usleep (sctx->tx_delay);
+		}
+	else
+		{
+		if (ctx->debug)
+			{
+	  		fprintf (stderr, "Not matching %s/", inet_ntoa(sctx->source));
+	  		fprintf (stderr, "%s\n", inet_ntoa(sctx->mask));
+			}
 	    }
-	  if (ctx->tx_delay)
-	    usleep (ctx->tx_delay);
 	}
     }
 }
@@ -351,15 +497,27 @@ Supported options:\n\
   -b <size>                set socket buffer size (default %lu)\n\
   -S                       maintain (spoof) source addresses\n\
   -x <delay>               transmit delay in microseconds\n\
+  -c configfile            specify a config file to read\n\
   -h                       print this usage message and exit\n\
 \n\
 Specifying receivers:\n\
 \n\
   A.B.C.D[/port[/freq]]...\n\
-where:
+where:\n\
   A.B.C.D                  is the receiver's IP address\n\
   port                     is the UDP port to send to (default %d)\n\
   freq                     is the sampling rate (default 1)\n\
+\n\
+Config file format:\n\
+\n\
+  a.b.c.d[/e.f.g.h]: receiver ...\n\
+where:\n\
+  a.b.c.d                  is the senders IP address\n\
+  e.f.g.h                  is a mask to apply to the sender (default 255.255.255.255)\n\
+  receiver                 see above.\n\
+\n\
+Receivers specified on the command line will get all packets, those\n\
+specified in the config-file will get only packets with a matching source.\n\n\
 ",
 	   progname,
 	   FLOWPORT, (unsigned long) DEFAULT_SOCKBUFLEN,
