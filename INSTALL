@@ -1,0 +1,11 @@
+Instructions for installing the samplicator
+-------------------------------------------
+
+Copyright (c) 2000 Simon Leinen  <simon@switch.ch>
+
+SYNOPSIS
+
+./configure --help
+./configure
+make
+make install

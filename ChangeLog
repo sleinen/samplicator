@@ -1,0 +1,56 @@
+2000-01-19  Simon Leinen  <simon@limmat.switch.ch>
+
+	* COPYING, INSTALL, AUTHORS: New file.
+
+	* Makefile.in (DISTFILES): install.sh -> install-sh.
+
+2000-01-18  Simon Leinen  <simon@limmat.switch.ch>
+
+	* samplicate.c (scan_ip): Made work on little-endian systems.
+
+	* samplicate.c (scan_ip): Return error if octet > 255.
+
+	* samplicate.c (scan_ip):
+	Use pointer argument to avoid returning a struct.
+
+	* Makefile.in (LIBS): Set from @LIBS@.
+
+1999-10-29  leinen  <leinen@celeste>
+
+	* README (DOWNLOADING):
+	New section pointing to the WWW distribution URL.
+
+	* Makefile.in (DISTDIR): Changed distribution directory.
+
+	(dist): Make distribution directory before installing files therein.
+
+	* Makefile.in: Added variables and targets to simplify distribution.
+
+1999-10-06  leinen  <leinen@celeste>
+
+	* README: New file.
+
+1999-10-05  leinen  <leinen@celeste>
+
+	* Makefile.in: Simplified by removing APPS variable.
+
+	Support @srcdir@.
+
+	* samplicate.c (main): Accept `-h' (help) argument.
+
+	No longer use select(), just block on recvfrom().
+
+	(usage): Further improved.
+
+	* configure.in: No longer check for sizes of integer types.
+
+	No longer check for time struct definitions.
+
+	* configure.in: No longer check for <sys/select.h>.
+
+	* samplicate.c (usage): Improved usage message.
+
+	* configure.in, Makefile.in: replicate -> samplicate.
+
+	* Makefile.in, configure.in, samplicate.c: New file.
+
