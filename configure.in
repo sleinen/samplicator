@@ -8,4 +8,5 @@ AC_CHECK_LIB(socket,bind)
 AC_STDC_HEADERS
 AC_CHECK_HEADERS(stdlib.h unistd.h arpa/inet.h netinet/in_systm.h sys/uio.h)
 AC_CHECK_FUNCS(memcpy)
+AC_REPLACE_FUNCS(inet_aton)
 AC_OUTPUT(Makefile)
