@@ -5,7 +5,8 @@
  Author:       Simon Leinen  <simon@limmat.switch.ch>
 
  Send a UDP datagram to a given destination address, but make it look
- as if it came from a given source address.
+ as if it came from a given transport address (IP address and port
+ number).
  */
 
 #include "config.h"
@@ -48,21 +49,6 @@
 
 static unsigned ip_header_checksum (const void * header);
 
-static unsigned
-ip_header_checksum (const void * header)
-{
-  unsigned long csum = 0;
-  unsigned size = ((struct ip *) header)->ip_hl;
-  uint16_t *h = (uint16_t *) header;
-  unsigned k;
-  for (k = 0; k < size; ++k)
-    {
-      csum ^= h[2*k];
-      csum ^= h[2*k+1];
-    }
-  return ~csum;
-}
-
 int
 raw_send_from_to (s, msg, msglen, saddr, daddr)
      int s;
@@ -91,6 +77,9 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   uh.uh_sport = saddr->sin_port;
   uh.uh_dport = daddr->sin_port;
   uh.uh_ulen = htons (msglen + sizeof uh);
+  /* It would be nice if we'd actually compute the UDP checksum,
+     because that's the only protection against transmission errors of
+     the copied packets. */
   uh.uh_sum = 0;
 
   length = msglen + sizeof uh + sizeof ih;
@@ -125,7 +114,14 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   ih.ip_sum = htons (0);
   ih.ip_src.s_addr = saddr->sin_addr.s_addr;
   ih.ip_dst.s_addr = daddr->sin_addr.s_addr;
-  ih.ip_sum = htons (ip_header_checksum (&ih));
+
+  /* At least on Solaris, it seems clear that even the raw IP datagram
+     transmission code will actually compute the IP header checksum
+     for us.  Probably this is the case for all other systems on which
+     this code works, so maybe we should just set the checksum to zero
+     to avoid duplicate work.  I'm not even sure whether my IP
+     checksum computation in ip_header_checksum() below is correct. */
+  ih.ip_sum = ip_header_checksum (&ih);
 
   dest_a.sin_family = AF_INET;
   dest_a.sin_port = IPPROTO_UDP;
@@ -169,4 +165,34 @@ extern int
 make_raw_udp_socket ()
 {
   return socket (PF_INET, SOCK_RAW, IPPROTO_RAW);
+}
+
+/* unsigned ip_header_checksum (header)
+
+   Compute IP header checksum IN NETWORK BYTE ORDER.
+
+   This is defined in RFC 760 as "the 16 bit one's complement of the
+   one's complement sum of all 16 bit words in the header.  For
+   purposes of computing the checksum, the value of the checksum field
+   is zero.".
+*/
+static unsigned
+ip_header_checksum (const void * header)
+{
+  unsigned long csum = 0;
+  unsigned size = ((struct ip *) header)->ip_hl;
+  uint16_t *h = (uint16_t *) header;
+  unsigned k;
+
+  /* Interestingly, we don't need to convert between network and host
+     byte order because of the way the checksum is defined. */
+  for (k = 0; k < size; ++k)
+    {
+      csum += *h++ + *h++;
+    }
+  while (csum > 0xffff)
+    {
+      csum = (csum & 0xffff) + (csum >> 16);
+    }
+  return ~csum & 0xffff;
 }
