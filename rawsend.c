@@ -136,7 +136,7 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   iov[2].iov_len = msglen;
 
   bzero ((char *) &mh, sizeof mh);
-  mh.msg_name = (struct sockaddr *)&dest_a;
+  mh.msg_name = (char *)&dest_a;
   mh.msg_namelen = sizeof dest_a;
   mh.msg_iov = iov;
   mh.msg_iovlen = 3;
@@ -151,7 +151,7 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
 	      (struct sockaddr *)&dest_a, sizeof dest_a) == -1)
 #endif /* not HAVE_SYS_UIO_H */
     {
-      if (getsockopt (s, SOL_SOCKET, SO_ERROR, &sockerr, &sockerr_size) == 0)
+      if (getsockopt (s, SOL_SOCKET, SO_ERROR, (char *) &sockerr, &sockerr_size) == 0)
 	{
 	  fprintf (stderr, "socket error: %d\n", sockerr);
 	  fprintf (stderr, "socket: %s\n",
@@ -171,7 +171,8 @@ make_raw_udp_socket (sockbuflen)
     return s;
   if (sockbuflen != -1)
     {
-      if (setsockopt (s, SOL_SOCKET, SO_SNDBUF, (char *) &sockbuflen, sizeof sockbuflen) == -1)
+      if (setsockopt (s, SOL_SOCKET, SO_SNDBUF,
+		      (char *) &sockbuflen, sizeof sockbuflen) == -1)
 	{
 	  fprintf (stderr, "setsockopt(SO_SNDBUF,%ld): %s\n",
 		   sockbuflen, strerror (errno));
@@ -184,7 +185,7 @@ make_raw_udp_socket (sockbuflen)
      <vovik@lucky.net> */
     {
       int on = 1;
-      if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)) < 0)
+      if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, (char *) &on, sizeof(on)) < 0)
 	{
 	  fprintf (stderr, "setsockopt(IP_HDRINCL,%d): %s\n",
 		   on, strerror (errno));
