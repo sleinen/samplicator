@@ -5,7 +5,7 @@
  Author:       Simon Leinen  <simon@limmat.switch.ch>
  */
 
-extern int make_raw_udp_socket (struct sockaddr_in *);
+extern int make_raw_udp_socket (void);
 extern int raw_send_from_to (int,
 			     const void *, size_t,
 			     struct sockaddr_in *,

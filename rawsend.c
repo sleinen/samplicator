@@ -120,8 +120,7 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
 }
 
 extern int
-make_raw_udp_socket (dest)
-     struct sockaddr_in *dest;
+make_raw_udp_socket ()
 {
   return socket (PF_INET, SOCK_RAW, IPPROTO_RAW);
 }
