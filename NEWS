@@ -2,10 +2,15 @@ Samplicator NEWS -- history of user-visible changes	-*- text -*-
 
 Copyright (c) 2000 Simon Leinen  <simon@switch.ch>
 
+Version 1.3.1:
+
+Added patch to make source address spoofing work on BSD-based systems.
+
 Version 1.3:
 
 Added config file option "-c" which implements samplication to
-peers depending on the source of the packet.
+peers depending on the source of the packet.  See README for a
+short description of this feature.
 
 Version 1.2.1:
 
