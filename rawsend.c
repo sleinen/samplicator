@@ -176,6 +176,7 @@ make_raw_udp_socket (sockbuflen)
 		   sockbuflen, strerror (errno));
 	}
     }
+  return s;
 }
 
 /* unsigned ip_header_checksum (header)
