@@ -1,3 +1,5 @@
+#include "config.h"
+
 #ifdef HAVE_STDLIB_H
 #include <stdlib.h>
 #endif
@@ -16,16 +18,13 @@
 # define bzero(b,n) memset(b,0,n)
 #else
 # include <strings.h>
-# ifndef HAVE_STRCHR
-#  define strchr index
-#  define strrchr rindex
-# endif
-char *strchr (), *strrchr ();
 # ifndef HAVE_MEMCPY
 #  define memcpy(d, s, n) bcopy ((s), (d), (n))
 #  define memmove(d, s, n) bcopy ((s), (d), (n))
 # endif
 #endif
+
+#include "rawsend.h"
 
 #define PDU_SIZE 1500
 
