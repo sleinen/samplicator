@@ -27,6 +27,9 @@
 #  define memmove(d, s, n) bcopy ((s), (d), (n))
 # endif
 #endif
+#ifdef HAVE_CTYPE_H
+# include <ctype.h>
+#endif
 #ifndef HAVE_INET_ATON
 extern int inet_aton (const char *, struct in_addr *);
 #endif
@@ -80,11 +83,12 @@ struct source_context {
 static void usage(const char *);
 static int send_pdu_to_peer (struct peer *, const void *, size_t,
 			     struct sockaddr_in *);
-static int parse_args (int, char **, struct samplicator_context *, struct source_context *);
+static void parse_args (int, char **, struct samplicator_context *, struct source_context *);
 static int parse_peers (int, char **, struct samplicator_context *, struct source_context *);
 static int init_samplicator (struct samplicator_context *);
 static int samplicate (struct samplicator_context *);
 static int make_cooked_udp_socket (long);
+static void read_cf_file (const char *, struct samplicator_context *);
 
 /* Work around a GCC compatibility problem with respect to the
    inet_ntoa() system function */
@@ -118,11 +122,14 @@ char **argv;
   cmd_line.next = (struct source_context *) NULL;
 
   parse_args (argc, argv, &ctx, &cmd_line);
-  init_samplicator (&ctx);
-  samplicate (&ctx);
+  if (init_samplicator (&ctx) == -1)
+    exit (1);
+  if (samplicate (&ctx) != 0) /* actually, samplicate() should never return. */
+    exit (1);
+  exit (0);
 }
 
-static int
+static void
 parse_args (argc, argv, ctx, sctx)
      int argc;
      char **argv;
@@ -169,9 +176,14 @@ parse_args (argc, argv, ctx, sctx)
       break;
     }
 
-  if ( argc - optind > 0 )
-    parse_peers (argc - optind, argv + optind, ctx, sctx);
-
+  if (argc - optind > 0)
+    {
+      if (parse_peers (argc - optind, argv + optind, ctx, sctx) == -1)
+	{
+	  usage (argv[0]);
+	  exit (1);
+	}
+    }
 }
 
 static int
@@ -192,7 +204,7 @@ parse_peers (argc, argv, ctx, sctx)
 
   if (!(sctx->peers = (struct peer*) malloc (sctx->npeers * sizeof (struct peer)))) {
     fprintf(stderr, "malloc(): failed.\n");
-    exit (1);
+    return -1;
   }
 
   /* zero out malloc'd memory */
@@ -206,7 +218,7 @@ parse_peers (argc, argv, ctx, sctx)
       if (strlen (argv[i]) > 255)
 	{
 	  fprintf (stderr, "ouch!\n");
-	  exit (1);
+	  return -1;
 	}
       strcpy (tmp_buf, argv[i]);
 
@@ -242,7 +254,7 @@ parse_peers (argc, argv, ctx, sctx)
       if (inet_aton (tmp_buf, & sctx->peers[i].addr.sin_addr) == 0)
 	{
 	  fprintf (stderr, "parsing IP address (%s) failed\n", tmp_buf);
-	  exit (1);
+	  return -1;
 	}
 
       sctx->peers[i].addr.sin_family = AF_INET;
@@ -261,7 +273,7 @@ parse_peers (argc, argv, ctx, sctx)
 		    {
 		      fprintf (stderr, "creating raw socket: %s\n", strerror(errno));
 		    }
-		  exit (1);
+		  return -1;
 		}
 	    }
 	  sctx->peers[i].fd = raw_sock;
@@ -274,23 +286,25 @@ parse_peers (argc, argv, ctx, sctx)
 		{
 		  fprintf (stderr, "creating cooked socket: %s\n",
 			   strerror(errno));
-		  exit (1);
+		  return -1;
 		}
 	    }
 	  sctx->peers[i].fd = cooked_sock;
 	}
     }
+  return 0;
 }
 
-read_cf_file(file, ctx)
-char *file;
-struct samplicator_context *ctx;
+static void
+read_cf_file (file, ctx)
+     const char *file;
+     struct samplicator_context *ctx;
 {
   FILE *cf;
   char tmp_s[MAX_LINELEN];
   int argc;
   char *argv[MAX_PEERS];
-  char *c,*slash,*e;
+  unsigned char *c, *slash, *e;
   struct source_context *sctx;
 
   if ((cf = fopen(file,"r")) == NULL)
@@ -303,7 +317,7 @@ struct samplicator_context *ctx;
     {
       fgets(tmp_s, MAX_LINELEN - 1, cf);
 	
-      if (c = strchr(tmp_s, '#'))
+      if ((c = strchr(tmp_s, '#')) != 0)
 	continue;
 	
       /* lines look like this:
@@ -312,12 +326,12 @@ struct samplicator_context *ctx;
 
       */
 	
-      if (c = strchr(tmp_s, ':'))
+      if ((c = strchr(tmp_s, ':')) != 0)
 	{
 	  *c++ = 0;
 
 	  sctx = calloc(1, sizeof(struct source_context));
-	  if (slash = strchr(tmp_s, '/'))
+	  if ((slash = strchr (tmp_s, '/')) != 0)
 	    {
 	      *slash++ = 0;
 		
@@ -349,12 +363,12 @@ struct samplicator_context *ctx;
 	  argc = 0;
 	  while (*c != 0)
 	    {
-	      while ( (*c != 0) && isspace(*c))  
+	      while ((*c != 0) && isspace ((int) *c))
 		c++;
 	      if (*c == 0 ) break;
 
 	      e = c;
-	      while( (*e != 0) && !isspace(*e))
+	      while((*e != 0) && !isspace ((int) *e))
 		e++;
 	      argv[argc++] = c;
 	      c = e;
@@ -387,7 +401,7 @@ init_samplicator (ctx)
 
   if ((ctx->fsockfd = socket (AF_INET, SOCK_DGRAM, 0)) < 0) {
     fprintf (stderr, "socket(): %s\n", strerror (errno));
-    exit(1);
+    return -1;
   }
   if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_RCVBUF,
 		  (char *) &ctx->sockbuflen, sizeof ctx->sockbuflen) == -1)
@@ -398,8 +412,9 @@ init_samplicator (ctx)
   if (bind (ctx->fsockfd,
 	    (struct sockaddr*)&local_address, sizeof local_address) < 0) {
     fprintf (stderr, "bind(): %s\n", strerror (errno));
-    exit (1);
+    return -1;
   }
+  return 0;
 }
 
 static int
