@@ -1,6 +1,16 @@
-Samplicator NEWS -- history of user-visible changes.  19 Jan 2000
+Samplicator NEWS -- history of user-visible changes	-*- text -*-
+
 Copyright (c) 2000 Simon Leinen  <simon@switch.ch>
 
-Converted to Automake.
+Version 1.1:
 
-Added `raw' mode (-r).
+Added `raw' mode (-r).  If this is set, the samplicator will conserve
+the original source address in replicated packets.  Note that in order
+to use this, root privilege is necessary on most systems.  This
+feature has been introduced for the benefit of post-processing
+software that uses the source address in NetFlow accounting packets.
+For instance, Fluxoscope and newer Cflowd releases use SNMP to get
+per-interface configuration data from each NetFlow-sending router.
+
+Converted to Automake and added files to comply with GNU coding and
+documentation standards.
