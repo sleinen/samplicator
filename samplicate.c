@@ -11,10 +11,11 @@
 # include <arpa/inet.h>
 #endif
 #include <stdio.h>
+#include <string.h>
 #if STDC_HEADERS
-# include <string.h>
 # define bzero(b,n) memset(b,0,n)
 #else
+# include <strings.h>
 # ifndef HAVE_STRCHR
 #  define strchr index
 #  define strrchr rindex
@@ -35,7 +36,7 @@ char *strchr (), *strrchr ();
 
 static int debug;
 
-static void usage();
+static void usage(const char *);
 
 struct peer {
   int			fd;
@@ -110,19 +111,19 @@ char **argv;
   debug = 0;
   tx_delay = 0;
 
-  while ((i = getopt(argc, argv, "d:p:x:")) != -1)
+  while ((i = getopt (argc, argv, "d:p:x:")) != -1)
     switch (i) {
     case 'd': /* debug */
-      debug = atoi(optarg);
+      debug = atoi (optarg);
       break;
     case 'p': /* flow Port */
-      fport = atoi(optarg);
+      fport = atoi (optarg);
       break;
     case 'x': /* transmit delay */
-      tx_delay = atoi(optarg);
+      tx_delay = atoi (optarg);
       break;
     default:
-      usage();
+      usage(argv[0]);
       exit (1);
       break;
     }
@@ -130,23 +131,23 @@ char **argv;
   /* allocate argc - optind peer entries */
   npeers = argc - optind;
 
-  if (!(peers = (struct peer*)malloc(npeers * sizeof (struct peer)))) {
+  if (!(peers = (struct peer*) malloc (npeers * sizeof (struct peer)))) {
     fprintf(stderr, "malloc(): failed.\n");
     exit (1);
   }
 
   /* zero out malloc'd memory */
-  bzero(peers, npeers*sizeof(struct peer));
+  bzero(peers, npeers*sizeof (struct peer));
 
   /* fill in peer entries */
   for (i = optind, n = 0; i < argc; ++i, ++n)
     {
-      if (strlen(argv[i]) > 255)
+      if (strlen (argv[i]) > 255)
 	{
-	  fprintf(stderr, "ouch!\n");
+	  fprintf (stderr, "ouch!\n");
 	  exit (1);
 	}
-      strcpy(tmp_buf, argv[i]);
+      strcpy (tmp_buf, argv[i]);
 
       /* skip to end or port seperator */
       for (c = tmp_buf; (*c != '/') && (*c); ++c);
@@ -268,12 +269,17 @@ char **argv;
 }
 
 static void
-usage()
+usage (progname)
+     const char *progname;
 {
-  fprintf(stderr, "Syntax:\n\n");
-  fprintf(stderr, " -d        #  set debug level.\n");
-  fprintf(stderr, " -p <port> #  UDP port to accept flows on.\n");
-  fprintf(stderr, " -x        #  transmit delay in microseconds.\n");
-  fprintf(stderr, "replicate A.B.C.D/port/freq  A.B.C.D/port/freq ...\n");
-  fprintf(stderr, "\n\n");
-} /* usage */
+  fprintf (stderr, "Usage: %s [option...] receiver...\n\
+\n\
+Supported options:\n\
+\n\
+  -d <level>               debug level\n\
+  -p <port>                UDP port to accept flows on\n\
+  -x <delay>               transmit delay in microseconds\n\
+\nSpecifying receivers:\n\
+\n\
+  A.B.C.D[/port[/freq]]... receivers and sampling rates\n", progname);
+}
