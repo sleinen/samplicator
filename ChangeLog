@@ -1,3 +1,30 @@
+2001-07-24  Simon Leinen  <simon@limmat.switch.ch>
+
+	* samplicate.c: No longer include <strings.h> by default.
+
+	(read_cf_file): Use strchr() rather than index().
+
+	Re-indented.
+
+	* configure.in: Check for `strchr'.
+
+	* rawsend.c (raw_send_from_to): Set the destination address.
+
+	* configure.in: Version 1.2.1 -> 1.3.0.
+
+	* AUTHORS: Better layout.
+
+	Added Otmar Lendl.
+
+2001-07-23  Otmar Lendl <O.Lendl@KPNQwest.at>
+
+	* samplicate.c: added configuration file for samplicating
+	based on source address.
+
+	* README: Document -c option and configuration file format.
+
+	* NEWS: Document 1.3 changes: `-c' option.
+
 2000-01-20  Simon Leinen  <simon@limmat.switch.ch>
 
 	* rawsend.c: Use sendmsg() to avoid copying the IP and UDP headers
