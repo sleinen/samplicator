@@ -176,6 +176,8 @@ parse_args (argc, argv, ctx, sctx)
 		       "Illegal receive port %d - \
 should be between 0 and 65535\n",
 		       ctx->fport);
+	      usage (argv[0]);
+	      exit (1);
 	    }
 	  break;
 	case 'x': /* transmit delay */
@@ -257,10 +259,8 @@ parse_peers (argc, argv, ctx, sctx)
 	  port = atoi(c);
 	  if (port < 0 || port > 65535)
 	    {
-	      fprintf (stderr,
-		       "Illegal destination port %d - \
-should be between 0 and 65535\n",
-		       port);
+	      fprintf (stderr, "Illegal destination port %d - \
+should be between 0 and 65535\n", port);
 	      return -1;
 	    }
 	  sctx->peers[i].addr.sin_port = htons (port);
