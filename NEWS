@@ -2,6 +2,13 @@ Samplicator NEWS -- history of user-visible changes	-*- text -*-
 
 Copyright (c) 2000 Simon Leinen  <simon@switch.ch>
 
+Version 1.2:
+
+Added `-b' argument to set the size of the socket buffers.  The
+default is now no longer the system default, but 65536.  If you
+experience packet drops, you can try to increase the size of the
+socket buffers.
+
 Version 1.1:
 
 Added `spoof' mode (-S).  If this is set, the samplicator will
