@@ -170,12 +170,7 @@ make_raw_udp_socket (sockbuflen)
     return s;
   if (sockbuflen != -1)
     {
-      if (setsockopt (s, SOL_SOCKET, SO_RCVBUF, &sockbuflen, sizeof sockbuflen) == -1)
-	{
-	  fprintf (stderr, "setsockopt(SO_RCVBUF,%ld): %s\n",
-		   sockbuflen, strerror (errno));
-	}
-      if (setsockopt (s, SOL_SOCKET, SO_SNDBUF, &sockbuflen, sizeof sockbuflen) == -1)
+      if (setsockopt (s, SOL_SOCKET, SO_SNDBUF, (char *) &sockbuflen, sizeof sockbuflen) == -1)
 	{
 	  fprintf (stderr, "setsockopt(SO_SNDBUF,%ld): %s\n",
 		   sockbuflen, strerror (errno));
