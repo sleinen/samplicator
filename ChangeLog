@@ -1,5 +1,55 @@
 2000-01-20  Simon Leinen  <simon@limmat.switch.ch>
 
+	* samplicate.c (main): Use the same raw/cooked socket for all
+	peers.
+
+	* rawtest.c (main): Use make_raw_udp_socket() and new signature of
+	raw_send_from_to().
+
+	* rawsend.h, rawsend.c (make_raw_udp_socket): Suppressed address
+	argument.
+
+	* rawsend.c: Removed Linux-specific code, use BSD interfaces
+	instead.
+
+	* configure.in: Version -> 1.1.
+
+	Check for <netinet/in_systm.h> (necessary on Solaris).
+
+	* INSTALL: Inserted instructions from README.
+
+	* README: Moved installation instructions to INSTALLATION.
+
+	* NEWS: Describe `raw' mode.
+
+	* rawsend.c, rawsend.h (make_raw_udp_socket): New function.
+
+	(raw_send_from_to): Removed address length arguments.
+
+	* samplicate.c (enum peer_flags): New type.
+
+	(struct peer): Added `flags' slot.
+
+	(main): Understand `-r' option and set pf_RAW on the peers if this
+	is set.
+
+	(send_pdu_to_peer): New function which calls sendto() or
+	raw_send_from_to() depending on whether the pf_RAW flag is set.
+
+	(scan_ip): Removed in favor of inet_aton().
+
+	* samplicate.c: Include "config.h" and "rawsend.h".
+
+	Leave out some unnecessary #ifdefs.
+
+	* rawtest.c: Include "config.h".
+
+	* rawsend.c: Added autoconf-based header portability.
+
+	* Makefile.am (EXTRA_PROGRAMS): New macro, put `rawtest' here.
+
+2000-01-20  Simon Leinen  <simon@limmat.switch.ch>
+
 	* rawsend.c: Removed Linux-specific code, use BSD interfaces instead.
 
 	* configure.in: Version -> 1.1.
