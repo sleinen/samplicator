@@ -12,6 +12,12 @@ DANTE has added the sampling feature, and Simon Leinen
 <simon@switch.ch> removed lots of unused code and packaged the program
 for easier compilation/installation.
 
+			     DOWNLOADING
+
+This package is distributed under
+
+	http://www.switch.ch/tf-tant/floma/sw/samplicator/
+
 			     INSTALLATION
 
 This distribution uses GNU configure for portability and flexibility
