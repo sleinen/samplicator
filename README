@@ -29,8 +29,8 @@ Where each <option> can be one of
 
 	-d <level>	to set the debugging level
 	-p <port>	to set the UDP port on which to listen for
-			incoming packets
-	-b <buflen>	size of receive buffer
+			incoming packets (default 2000)
+	-b <buflen>	size of receive buffer (default 65536)
 	-x <delay>	to specify a transmission delay in units of
 			microseconds
 	-S		maintain (spoof) source addresses
@@ -39,7 +39,7 @@ Where each <option> can be one of
 and each <destination> should be specified as
 <addr>[/<port>[/<interval>]], where
 
-	<addr>		is the IP address of the receiver
-	<port>		is the port UDP number of the receiver
-	<freq>		is the number of received datagram between
-			each copied datagram for this receiver.
+	<addr>		IP address of the receiver
+	<port>		port UDP number of the receiver (default 2000)
+	<freq>		number of received datagrams between successive
+			copied datagrams for this receiver.
