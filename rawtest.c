@@ -5,6 +5,8 @@
  Author:       Simon Leinen  <simon@limmat.switch.ch>
  */
 
+#include "config.h"
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
