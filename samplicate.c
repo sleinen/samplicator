@@ -34,8 +34,6 @@ extern int inet_aton (const char *, struct in_addr *);
 
 #define FLOWPORT 2000 
 
-static int debug;
-
 enum peer_flags
 {
   pf_SPOOF	= 0x0001,
@@ -50,11 +48,24 @@ struct peer {
   enum peer_flags	flags;
 };
 
+struct samplicator_context {
+  struct peer	      *	peers;
+  unsigned		npeers;
+  int			fport;
+  unsigned		tx_delay;
+  long			sockbuflen;
+  int			debug;
+
+  int			fsockfd;
+};
+
 static void usage(const char *);
 static int send_pdu_to_peer (struct peer *, const void *, size_t,
 			     struct sockaddr_in *);
-static int parse_args (int, char **, struct peer **, int *, int *, unsigned *);
-static int samplicate (struct peer *, int, int, unsigned);
+static int parse_args (int, char **, struct samplicator_context *);
+static int init_samplicator (struct samplicator_context *);
+static int samplicate (struct samplicator_context *);
+static int make_cooked_udp_socket (long);
 
 /* Work around a GCC compatibility problem with respect to the
    inet_ntoa() system function */
@@ -82,47 +93,47 @@ char **argv;
   int npeers;
   int fport;
   unsigned tx_delay;
+  long sockbuflen;
+  struct samplicator_context ctx;
 
-  parse_args (argc, argv, &peers, &npeers, &fport, &tx_delay);
-  samplicate (peers, npeers, fport, tx_delay);
+  parse_args (argc, argv, &ctx);
+  init_samplicator (&ctx);
+  samplicate (&ctx);
 }
 
 static int
-parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
+parse_args (argc, argv, ctx)
      int argc;
      char **argv;
-     struct peer **peersp;
-     int *npeersp;
-     int *fportp;
-     unsigned *tx_delayp;
+     struct samplicator_context *ctx;
 {
   extern char *optarg;
   extern int errno, optind;
-  int npeers;
-  unsigned tx_delay;
-  struct peer *peers;
   char tmp_buf[256];
   char *c;
-  int fport;
   int spoof_p = 0;
   int raw_sock = -1;
   int cooked_sock = -1;
   int i, n;
 
-  fport = FLOWPORT;
-  debug = 0;
-  tx_delay = 0;
+  ctx->sockbuflen = -1;
+  ctx->fport = FLOWPORT;
+  ctx->debug = 0;
+  ctx->tx_delay = 0;
 
-  while ((i = getopt (argc, argv, "hd:p:x:S")) != -1)
+  while ((i = getopt (argc, argv, "hb:d:p:x:S")) != -1)
     switch (i) {
+    case 'b': /* buflen */
+      ctx->sockbuflen = atol (optarg);
+      break;
     case 'd': /* debug */
-      debug = atoi (optarg);
+      ctx->debug = atoi (optarg);
       break;
     case 'p': /* flow Port */
-      fport = atoi (optarg);
+      ctx->fport = atoi (optarg);
       break;
     case 'x': /* transmit delay */
-      tx_delay = atoi (optarg);
+      ctx->tx_delay = atoi (optarg);
       break;
     case 'S': /* spoof */
       spoof_p = 1;
@@ -138,22 +149,22 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
     }
 
   /* allocate argc - optind peer entries */
-  npeers = argc - optind;
+  ctx->npeers = argc - optind;
 
-  if (!(peers = (struct peer*) malloc (npeers * sizeof (struct peer)))) {
+  if (!(ctx->peers = (struct peer*) malloc (ctx->npeers * sizeof (struct peer)))) {
     fprintf(stderr, "malloc(): failed.\n");
     exit (1);
   }
 
   /* zero out malloc'd memory */
-  bzero(peers, npeers*sizeof (struct peer));
+  bzero(ctx->peers, ctx->npeers*sizeof (struct peer));
 
   /* fill in peer entries */
   for (i = optind, n = 0; i < argc; ++i, ++n)
     {
       if (spoof_p)
 	{
-	  peers[n].flags |= pf_SPOOF;
+	  ctx->peers[n].flags |= pf_SPOOF;
 	}
       if (strlen (argv[i]) > 255)
 	{
@@ -170,10 +181,10 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
 	{
 	  *c = 0;
 	  ++c;
-	  peers[n].addr.sin_port = htons (atoi(c));
+	  ctx->peers[n].addr.sin_port = htons (atoi(c));
 	}
       else 
-	peers[n].addr.sin_port = htons (FLOWPORT);
+	ctx->peers[n].addr.sin_port = htons (FLOWPORT);
 
       /* extract the frequency part */
       for (; (*c != '/') && (*c); ++c)
@@ -182,28 +193,28 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
 	{
 	  *c = 0;
 	  ++c;
-	  peers[n].freq = atoi(c);
+	  ctx->peers[n].freq = atoi(c);
 	}
       else
-	peers[n].freq = 1;
-      peers[n].freqcount = 0;
+	ctx->peers[n].freq = 1;
+      ctx->peers[n].freqcount = 0;
 
-      /* printf("Frequency: %d\n", peers[n].freq); */
+      /* printf("Frequency: %d\n", ctx->peers[n].freq); */
 
       /* extract the ip address part */
-      if (inet_aton (tmp_buf, & peers[n].addr.sin_addr) == 0)
+      if (inet_aton (tmp_buf, & ctx->peers[n].addr.sin_addr) == 0)
 	{
 	  fprintf (stderr, "parsing IP address failed\n");
 	  exit (1);
 	}
 
-      peers[n].addr.sin_family = AF_INET;
+      ctx->peers[n].addr.sin_family = AF_INET;
 
-      if (peers[n].flags & pf_SPOOF)
+      if (ctx->peers[n].flags & pf_SPOOF)
 	{
 	  if (raw_sock == -1)
 	    {
-	      if ((raw_sock = make_raw_udp_socket ()) < 0)
+	      if ((raw_sock = make_raw_udp_socket (ctx->sockbuflen)) < 0)
 		{
 		  if (errno == EPERM)
 		    {
@@ -216,59 +227,57 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
 		  exit (1);
 		}
 	    }
-	  peers[n].fd = raw_sock;
+	  ctx->peers[n].fd = raw_sock;
 	}
       else
 	{
 	  if (cooked_sock == -1)
 	    {
-	      if ((cooked_sock = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
+	      if ((cooked_sock = make_cooked_udp_socket (ctx->sockbuflen)) < 0)
 		{
-		  fprintf (stderr, "socket(): %s\n", strerror(errno));
+		  fprintf (stderr, "creating cooked socket: %s\n", strerror(errno));
 		  exit (1);
 		}
 	    }
-	  peers[n].fd = cooked_sock;
+	  ctx->peers[n].fd = cooked_sock;
 	}
     }
-  *peersp = peers;
-  *npeersp = npeers;
-  *fportp = fport;
-  *tx_delayp = tx_delay;
 }
 
 static int
-samplicate (peers, npeers, fport, tx_delay)
-     struct peer * peers;
-     int npeers;
-     int fport;
-     unsigned tx_delay;
+init_samplicator (ctx)
+     struct samplicator_context *ctx;
 {
-  unsigned char fpdu[PDU_SIZE];
   struct sockaddr_in local_address;
-  struct sockaddr_in remote_address;
-  int fsockfd;
-  int i, len, n;
 
   /* setup to receive flows */
   bzero (&local_address, sizeof local_address);
   local_address.sin_family = AF_INET;
   local_address.sin_addr.s_addr = htonl (INADDR_ANY);
-  local_address.sin_port = htons (fport);
+  local_address.sin_port = htons (ctx->fport);
 
-  if ((fsockfd = socket (AF_INET, SOCK_DGRAM, 0)) < 0) {
+  if ((ctx->fsockfd = socket (AF_INET, SOCK_DGRAM, 0)) < 0) {
     fprintf (stderr, "socket(): %s\n", strerror (errno));
     exit(1);
   }
-  if (bind (fsockfd, (struct sockaddr*)&local_address, sizeof local_address) < 0) {
+  if (bind (ctx->fsockfd, (struct sockaddr*)&local_address, sizeof local_address) < 0) {
     fprintf (stderr, "bind(): %s\n", strerror (errno));
     exit (1);
   }
+}
+
+static int
+samplicate (ctx)
+     struct samplicator_context *ctx;
+{
+  unsigned char fpdu[PDU_SIZE];
+  struct sockaddr_in remote_address;
+  int i, len, n;
 
   while (1)
     {
       len = sizeof remote_address;
-      if ((n = recvfrom (fsockfd, (char*)fpdu,
+      if ((n = recvfrom (ctx->fsockfd, (char*)fpdu,
 			 sizeof (fpdu), 0,
 			 (struct sockaddr*) &remote_address, &len)) == -1)
 	{
@@ -287,39 +296,39 @@ samplicate (peers, npeers, fport, tx_delay)
 		   len, sizeof remote_address);
 	  exit (1);
 	}
-      if (debug)
+      if (ctx->debug)
 	{
 	  fprintf (stderr, "received %d bytes from %s:%d\n",
 		   n,
 		   inet_ntoa (remote_address.sin_addr),
 		   (int) ntohs (remote_address.sin_port));
 	}
-      for (i = 0; i < npeers; ++i)
+      for (i = 0; i < ctx->npeers; ++i)
 	{
-	  if (peers[i].freqcount == 0)
+	  if (ctx->peers[i].freqcount == 0)
 	    {
-	      if (send_pdu_to_peer (& (peers[i]), fpdu, n, &remote_address)
+	      if (send_pdu_to_peer (& (ctx->peers[i]), fpdu, n, &remote_address)
 		  == -1)
 		{
 		  fprintf (stderr, "sending datagram failed: %s\n",
-			   inet_ntoa (peers[i].addr.sin_addr),
-			   (int) ntohs (peers[i].addr.sin_port),
+			   inet_ntoa (ctx->peers[i].addr.sin_addr),
+			   (int) ntohs (ctx->peers[i].addr.sin_port),
 			   strerror (errno));
 		}
-	      else if (debug)
+	      else if (ctx->debug)
 		{
 		  fprintf (stderr, "  sent to %s:%d\n",
-			   inet_ntoa (peers[i].addr.sin_addr),
-			   (int) ntohs (peers[i].addr.sin_port)); 
+			   inet_ntoa (ctx->peers[i].addr.sin_addr),
+			   (int) ntohs (ctx->peers[i].addr.sin_port)); 
 		}
-	      peers[i].freqcount = peers[i].freq-1;
+	      ctx->peers[i].freqcount = ctx->peers[i].freq-1;
 	    }
 	  else
 	    {
-	      --peers[i].freqcount;
+	      --ctx->peers[i].freqcount;
 	    }
-	  if (tx_delay)
-	    usleep (tx_delay);
+	  if (ctx->tx_delay)
+	    usleep (ctx->tx_delay);
 	}
     }
 }
@@ -366,5 +375,27 @@ send_pdu_to_peer (peer, fpdu, length, source_addr)
       return sendto (peer->fd, (char*) fpdu, length, 0,
 		     (struct sockaddr*) &peer->addr,
 		     sizeof (struct sockaddr_in));
+    }
+}
+
+static int
+make_cooked_udp_socket (sockbuflen)
+     long sockbuflen;
+{
+  int s;
+  if ((s = socket (PF_INET, SOCK_DGRAM, 0)) == -1)
+    return s;
+  if (sockbuflen != -1)
+    {
+      if (setsockopt (s, SOL_SOCKET, SO_RCVBUF, &sockbuflen, sizeof sockbuflen) == -1)
+	{
+	  fprintf (stderr, "setsockopt(SO_RCVBUF,%ld): %s\n",
+		   sockbuflen, strerror (errno));
+	}
+      if (setsockopt (s, SOL_SOCKET, SO_SNDBUF, &sockbuflen, sizeof sockbuflen) == -1)
+	{
+	  fprintf (stderr, "setsockopt(SO_SNDBUF,%ld): %s\n",
+		   sockbuflen, strerror (errno));
+	}
     }
 }
