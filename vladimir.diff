@@ -1,0 +1,287 @@
+--- samplicate.c.orig	Sun Sep  2 16:08:43 2001
++++ samplicate.c	Wed Sep 12 15:45:36 2001
+@@ -41,8 +41,12 @@
+ #define FLOWPORT 2000 
+ 
+ #define DEFAULT_SOCKBUFLEN 65536
+ 
++#define PORT_SEPARATOR	':'
++#define FREQ_SEPARATOR	'/'
++#define TTL_SEPARATOR	','
++
+ #define MAX_PEERS 100
+ #define MAX_LINELEN 1000
+ 
+ enum peer_flags
+@@ -55,8 +59,9 @@
+   struct sockaddr_in	addr;
+   int			port;
+   int			freq;
+   int			freqcount;
++  unsigned char		ttl;
+   enum peer_flags	flags;
+ };
+ 
+ struct samplicator_context {
+@@ -116,13 +121,15 @@
+   struct source_context cmd_line;
+ 
+   cmd_line.source.s_addr = 0;
+   cmd_line.mask.s_addr = 0;
++  cmd_line.npeers = 0;
+   ctx.sources = &cmd_line;
+ 
+   cmd_line.next = (struct source_context *) NULL;
+ 
+   parse_args (argc, argv, &ctx, &cmd_line);
++
+   if (init_samplicator (&ctx) == -1)
+     exit (1);
+   if (samplicate (&ctx) != 0) /* actually, samplicate() should never return. */
+     exit (1);
+@@ -143,8 +150,12 @@
+   ctx->sockbuflen = DEFAULT_SOCKBUFLEN;
+   ctx->fport = FLOWPORT;
+   ctx->debug = 0;
+   ctx->sources = NULL;
++  /* lets imagine, that command-line supplied peers want to get all data */
++  sctx->source.s_addr = 0;
++  sctx->mask.s_addr = 0;
++
+   sctx->tx_delay = 0;
+ 
+   while ((i = getopt (argc, argv, "hb:d:p:x:c:S")) != -1)
+     switch (i) {
+@@ -197,8 +208,9 @@
+   char tmp_buf[256];
+   static int cooked_sock = -1;
+   static int raw_sock = -1;
+   char *c;
++  struct source_context *ptr;
+ 
+   /* allocate for argc peer entries */
+   sctx->npeers = argc;
+ 
+@@ -222,12 +234,12 @@
+ 	}
+       strcpy (tmp_buf, argv[i]);
+ 
+       /* skip to end or port seperator */
+-      for (c = tmp_buf; (*c != '/') && (*c); ++c);
++      for (c = tmp_buf; (*c != PORT_SEPARATOR) && (*c); ++c);
+ 
+       /* extract the port part */
+-      if (*c == '/')
++      if (*c == PORT_SEPARATOR)
+ 	{
+ 	  *c = 0;
+ 	  ++c;
+ 	  sctx->peers[i].addr.sin_port = htons (atoi(c));
+@@ -235,22 +247,33 @@
+       else 
+ 	sctx->peers[i].addr.sin_port = htons (FLOWPORT);
+ 
+       /* extract the frequency part */
+-      for (; (*c != '/') && (*c); ++c)
+-	;
+-      if (*c == '/')
++      sctx->peers[i].freqcount = 0;
++      sctx->peers[i].freq = 1;
++      for (; (*c != FREQ_SEPARATOR) && (*c); ++c)
++	if (*c == TTL_SEPARATOR) goto TTL;
++      if (*c == FREQ_SEPARATOR)
+ 	{
+ 	  *c = 0;
+ 	  ++c;
+ 	  sctx->peers[i].freq = atoi(c);
+ 	}
+-      else
+-	sctx->peers[i].freq = 1;
+-      sctx->peers[i].freqcount = 0;
+ 
+       /* printf("Frequency: %d\n", sctx->peers[i].freq); */
+ 
++       /* extract the TTL part */
++       for (; (*c != TTL_SEPARATOR) && (*c); ++c); 
++TTL:   
++       if ((*c == TTL_SEPARATOR) && (*(c+1) > 0))
++        {
++          *c = 0;
++          ++c;
++          sctx->peers[i].ttl = (unsigned char) atoi(c);
++        }
++       else
++        sctx->peers[i].ttl = DEFAULT_TTL; 
++
+       /* extract the ip address part */
+       if (inet_aton (tmp_buf, & sctx->peers[i].addr.sin_addr) == 0)
+ 	{
+ 	  fprintf (stderr, "parsing IP address (%s) failed\n", tmp_buf);
+@@ -291,8 +314,14 @@
+ 	    }
+ 	  sctx->peers[i].fd = cooked_sock;
+ 	}
+     }
++    if (ctx->sources == NULL) {
++	ctx->sources = sctx;
++    } else {
++    	for (ptr = ctx->sources; ptr->next != NULL; ptr = ptr->next);
++	ptr->next = sctx;
++    } 
+   return 0;
+ }
+ 
+ static void
+@@ -321,9 +350,9 @@
+ 	continue;
+ 	
+       /* lines look like this:
+ 
+-      ipadd[/mask]: dest/port dest2/port2 ...
++      ipadd[/mask]: dest[:port[/freq][,ttl]]  dest2[:port2[/freq2][,ttl2]]...
+ 
+       */
+ 	
+       if ((c = strchr(tmp_s, ':')) != 0)
+@@ -376,18 +405,18 @@
+ 		c++;
+ 	      *e = 0;
+ 	    }
+ 	  if (argc > 0) 
+-	    {
+-	      parse_peers (argc, argv, ctx, sctx);
+-	      sctx->next = ctx->sources;
+-	      ctx->sources = sctx;
+-	    }
++	      if (parse_peers (argc, argv, ctx, sctx) == -1) {
++          	usage (argv[0]);
++          	exit (1);
++              }
+ 	}
+     }
+   fclose(cf);
+ }
+ 
++/* init_samplicator: prepares receiving socket */
+ static int
+ init_samplicator (ctx)
+      struct samplicator_context *ctx;
+ {
+@@ -425,8 +454,16 @@
+   struct sockaddr_in remote_address;
+   struct source_context *sctx;
+   int i, len, n;
+ 
++  /* check is there actualy at least one configured data receiver */
++  for (i = 0, sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
++	if(sctx->npeers > 0)  i += sctx->npeers; 
++  if (i == 0) {
++        fprintf(stderr, "You have to specify at least on receiver, exiting\n");
++        exit(1);
++  }
++
+   while (1)
+     {
+       len = sizeof remote_address;
+       if ((n = recvfrom (ctx->fsockfd, (char*)fpdu,
+@@ -458,9 +495,9 @@
+ 
+ 
+       for(sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
+ 	{
+-	if ((remote_address.sin_addr.s_addr & sctx->mask.s_addr) == sctx->source.s_addr)
++	if ((sctx->source.s_addr == 0 ) || ((remote_address.sin_addr.s_addr & sctx->mask.s_addr) == sctx->source.s_addr))
+ 	      for (i = 0; i < sctx->npeers; ++i)
+ 	{
+ 		  if (sctx->peers[i].freqcount == 0)
+ 	    {
+@@ -516,13 +553,14 @@
+   -h                       print this usage message and exit\n\
+ \n\
+ Specifying receivers:\n\
+ \n\
+-  A.B.C.D[/port[/freq]]...\n\
++  A.B.C.D[:port[/freq][,ttl]]...\n\
+ where:\n\
+   A.B.C.D                  is the receiver's IP address\n\
+   port                     is the UDP port to send to (default %d)\n\
+   freq                     is the sampling rate (default 1)\n\
++  ttl                      is the sending packets TTL value (default %d)\n\
+ \n\
+ Config file format:\n\
+ \n\
+   a.b.c.d[/e.f.g.h]: receiver ...\n\
+@@ -535,9 +573,10 @@
+ specified in the config-file will get only packets with a matching source.\n\n\
+ ",
+ 	   progname,
+ 	   FLOWPORT, (unsigned long) DEFAULT_SOCKBUFLEN,
+-	   FLOWPORT);
++	   FLOWPORT,
++	   DEFAULT_TTL);
+ }
+ 
+ static int
+ send_pdu_to_peer (peer, fpdu, length, source_addr)
+@@ -548,9 +587,9 @@
+ {
+   if (peer->flags & pf_SPOOF)
+     {
+       return raw_send_from_to (peer->fd, fpdu, length,
+-			       source_addr, &peer->addr);
++			       source_addr, &peer->addr, peer->ttl);
+     }
+   else
+     {
+       return sendto (peer->fd, (char*) fpdu, length, 0,
+--- rawsend.c.orig	Tue Sep 11 22:17:16 2001
++++ rawsend.c	Tue Sep 11 22:18:52 2001
+@@ -44,19 +44,18 @@
+ #include "rawsend.h"
+ 
+ #define MAX_IP_DATAGRAM_SIZE 65535
+ 
+-#define DEFAULT_TTL 64
+-
+ static unsigned ip_header_checksum (const void * header);
+ 
+ int
+-raw_send_from_to (s, msg, msglen, saddr, daddr)
++raw_send_from_to (s, msg, msglen, saddr, daddr, ttl)
+      int s;
+      const void * msg;
+      size_t msglen;
+      struct sockaddr_in *saddr;
+      struct sockaddr_in *daddr;
++     unsigned char ttl;
+ {
+   int length;
+   int sockerr;
+   int sockerr_size = sizeof sockerr;
+@@ -108,9 +107,9 @@
+   ih.ip_tos = 0;
+   ih.ip_len = length;
+   ih.ip_id = htons (0);
+   ih.ip_off = htons (0);
+-  ih.ip_ttl = DEFAULT_TTL;
++  ih.ip_ttl = ttl;
+   ih.ip_p = 17;
+   ih.ip_sum = htons (0);
+   ih.ip_src.s_addr = saddr->sin_addr.s_addr;
+   ih.ip_dst.s_addr = daddr->sin_addr.s_addr;
+--- rawsend.h.orig	Tue Sep 11 22:20:40 2001
++++ rawsend.h	Tue Sep 11 22:22:14 2001
+@@ -4,9 +4,12 @@
+  Date Created: Wed Jan 19 18:53:42 2000
+  Author:       Simon Leinen  <simon@limmat.switch.ch>
+  */
+ 
++#define DEFAULT_TTL 64
++
+ extern int make_raw_udp_socket (long);
+ extern int raw_send_from_to (int,
+ 			     const void *, size_t,
+ 			     struct sockaddr_in *,
+-			     struct sockaddr_in *);
++			     struct sockaddr_in *,
++                             unsigned char);
