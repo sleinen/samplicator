@@ -298,7 +298,7 @@ samplicate (peers, npeers, fport, tx_delay)
 	      if (send_pdu_to_peer (& (peers[i]), fpdu, n, &remote_address)
 		  == -1)
 		{
-		  fprintf (stderr, "sendto(%s:%d) failed: %s",
+		  fprintf (stderr, "sending datagram failed: %s\n",
 			   inet_ntoa (peers[i].addr.sin_addr),
 			   (int) ntohs (peers[i].addr.sin_port),
 			   strerror (errno));
