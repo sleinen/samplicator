@@ -2,6 +2,13 @@ Samplicator NEWS -- history of user-visible changes	-*- text -*-
 
 Copyright (c) 2000 Simon Leinen  <simon@switch.ch>
 
+Version 1.3.2:
+
+Fixed argument parsing and allow TTL specification.
+
+In source address spoofing mode, convert IP header fields to network
+order for some operating systems that are known to require it.
+
 Version 1.3.1:
 
 Added patch to make source address spoofing work on BSD-based systems.
