@@ -30,6 +30,7 @@ Where each <option> can be one of
 	-d <level>	to set the debugging level
 	-p <port>	to set the UDP port on which to listen for
 			incoming packets
+	-b <buflen>	size of receive buffer
 	-x <delay>	to specify a transmission delay in units of
 			microseconds
 	-S		maintain (spoof) source addresses
