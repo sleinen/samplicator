@@ -16,6 +16,8 @@
 
 #include "rawsend.h"
 
+#define MAX_IP_DATAGRAM_SIZE 65510
+
 int
 main (int argc, char **argv)
 {
