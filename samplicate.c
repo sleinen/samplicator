@@ -26,9 +26,6 @@ char *strchr (), *strrchr ();
 #  define memmove(d, s, n) bcopy ((s), (d), (n))
 # endif
 #endif
-#ifdef HAVE_SYS_SELECT_H
-# include <sys/select.h>
-#endif
 
 #define PDU_SIZE 1500
 
@@ -74,6 +71,8 @@ scan_ip(const char *s)
   } /* forever */
 } /* scan_ip */
 
+/* Work around a GCC compatibility problem with respect to the
+   inet_ntoa() system function */
 #undef inet_ntoa
 #define inet_ntoa(x) my_inet_ntoa(&(x))
 
@@ -97,7 +96,6 @@ char **argv;
   extern char *optarg;
   extern int errno, optind;
   unsigned char fpdu[PDU_SIZE];
-  fd_set rfd;
   struct sockaddr_in local_address;
   struct sockaddr_in remote_address;
   int fsockfd;
@@ -111,7 +109,7 @@ char **argv;
   debug = 0;
   tx_delay = 0;
 
-  while ((i = getopt (argc, argv, "d:p:x:")) != -1)
+  while ((i = getopt (argc, argv, "hd:p:x:")) != -1)
     switch (i) {
     case 'd': /* debug */
       debug = atoi (optarg);
@@ -122,8 +120,12 @@ char **argv;
     case 'x': /* transmit delay */
       tx_delay = atoi (optarg);
       break;
+    case 'h': /* help */
+      usage (argv[0]);
+      exit (0);
+      break;
     default:
-      usage(argv[0]);
+      usage (argv[0]);
       exit (1);
       break;
     }
@@ -206,64 +208,54 @@ char **argv;
 
   while (1)
     {
-      FD_ZERO (&rfd);
-      FD_SET (fsockfd, &rfd);
-      if (select (fsockfd+1, &rfd, (fd_set *)0, (fd_set *)0, 0) < 0)
+      len = sizeof remote_address;
+      if ((n = recvfrom(fsockfd, (char*)fpdu,
+			sizeof (fpdu), 0,
+			(struct sockaddr*) &remote_address, &len)) == -1) {
+	fprintf(stderr, "recvfrom(): %s\n", strerror(errno));
+	exit (1);
+      }
+      if (len != sizeof remote_address)
 	{
-	  fprintf(stderr, "select(): %s\n", strerror(errno));
+	  fprintf (stderr, "recvfrom() return address length %d - expected %d\n",
+		   len, sizeof remote_address);
 	  exit (1);
 	}
-      if (FD_ISSET (fsockfd, &rfd))
+      if (debug)
 	{
-	  len = sizeof remote_address;
-	  if ((n = recvfrom(fsockfd, (char*)fpdu,
-			    sizeof (fpdu), 0,
-			    (struct sockaddr*) &remote_address, &len)) == -1) {
-	    fprintf(stderr, "recvfrom(): %s\n", strerror(errno));
-	    exit (1);
-	  }
-	  if (len != sizeof remote_address)
+	  fprintf (stderr, "received %d bytes from %s:%d\n",
+		   n,
+		   inet_ntoa (remote_address.sin_addr),
+		   (int) ntohs (remote_address.sin_port));
+	}
+      for (i = 0; i < npeers; ++i)
+	{
+	  if (peers[i].freqcount == 0)
 	    {
-	      fprintf (stderr, "recvfrom() return address length %d - expected %d\n",
-		       len, sizeof remote_address);
-	      exit (1);
-	    }
-	  if (debug)
-	    {
-	      fprintf (stderr, "received %d bytes from %s:%d\n",
-		       n,
-		       inet_ntoa (remote_address.sin_addr),
-		       (int) ntohs (remote_address.sin_port));
-	    }
-	  for (i = 0; i < npeers; ++i)
-	    {
-	      if (peers[i].freqcount == 0)
+	      if (sendto (peers[i].fd, (char*)fpdu, n, 0,
+			  (struct sockaddr*)&peers[i].addr,
+			  sizeof (struct sockaddr_in))
+		  == -1)
 		{
-		  if (sendto (peers[i].fd, (char*)fpdu, n, 0,
-			      (struct sockaddr*)&peers[i].addr,
-			      sizeof (struct sockaddr_in))
-		      == -1)
-		    {
-		      fprintf (stderr, "sendto(%s:%d) failed: %s",
-			       inet_ntoa (peers[i].addr.sin_addr),
-			       (int) ntohs (peers[i].addr.sin_port),
-			       strerror (errno));
-		    }
-		  else if (debug)
-		    {
-		      fprintf (stderr, "  sent to %s:%d\n",
-			       inet_ntoa (peers[i].addr.sin_addr),
-			       (int) ntohs (peers[i].addr.sin_port)); 
-		    }
-		  peers[i].freqcount = peers[i].freq-1;
+		  fprintf (stderr, "sendto(%s:%d) failed: %s",
+			   inet_ntoa (peers[i].addr.sin_addr),
+			   (int) ntohs (peers[i].addr.sin_port),
+			   strerror (errno));
 		}
-	      else
+	      else if (debug)
 		{
-		  --peers[i].freqcount;
+		  fprintf (stderr, "  sent to %s:%d\n",
+			   inet_ntoa (peers[i].addr.sin_addr),
+			   (int) ntohs (peers[i].addr.sin_port)); 
 		}
-	      if (tx_delay)
-		usleep((unsigned)tx_delay);
+	      peers[i].freqcount = peers[i].freq-1;
 	    }
+	  else
+	    {
+	      --peers[i].freqcount;
+	    }
+	  if (tx_delay)
+	    usleep ((unsigned)tx_delay);
 	}
     }
 }
@@ -277,9 +269,17 @@ usage (progname)
 Supported options:\n\
 \n\
   -d <level>               debug level\n\
-  -p <port>                UDP port to accept flows on\n\
+  -p <port>                UDP port to accept flows on (default %d)\n\
   -x <delay>               transmit delay in microseconds\n\
-\nSpecifying receivers:\n\
+  -h                       print this usage message and exit\n\
 \n\
-  A.B.C.D[/port[/freq]]... receivers and sampling rates\n", progname);
+Specifying receivers:\n\
+\n\
+  A.B.C.D[/port[/freq]]...\n\
+where:
+  A.B.C.D                  is the receiver's IP address\n\
+  port                     is the UDP port to send to (default %d)\n\
+  freq                     is the sampling rate (default 1)\n\
+",
+	   progname, FLOWPORT, FLOWPORT);
 }
