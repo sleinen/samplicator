@@ -21,7 +21,7 @@ main (int argc, char **argv)
 {
   int s;
 
-  if ((s = socket (PF_INET, SOCK_RAW, IPPROTO_RAW)) == -1)
+  if ((s = make_raw_udp_socket ()) == -1)
     {
       fprintf (stderr, "socket: %s\n",
 	       strerror (errno));
@@ -39,9 +39,7 @@ main (int argc, char **argv)
     dest.sin_addr.s_addr = htonl (0x7f000001);
     dest.sin_port = htons (5678);
 
-    if (raw_send_from_to (s, & msg, msglen,
-			  & here, sizeof here,
-			  &dest, sizeof dest) == -1)
+    if (raw_send_from_to (s, & msg, msglen, & here, &dest) == -1)
       {
 	fprintf (stderr, "sending failed: %s\n",
 		 strerror (errno));
