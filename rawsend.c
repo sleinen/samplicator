@@ -45,17 +45,16 @@
 
 #define MAX_IP_DATAGRAM_SIZE 65535
 
-#define DEFAULT_TTL 64
-
 static unsigned ip_header_checksum (const void * header);
 
 int
-raw_send_from_to (s, msg, msglen, saddr, daddr)
+raw_send_from_to (s, msg, msglen, saddr, daddr, ttl)
      int s;
      const void * msg;
      size_t msglen;
      struct sockaddr_in *saddr;
      struct sockaddr_in *daddr;
+     int ttl;
 {
   int length;
   int sockerr;
@@ -109,7 +108,7 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   ih.ip_len = length;
   ih.ip_id = htons (0);
   ih.ip_off = htons (0);
-  ih.ip_ttl = DEFAULT_TTL;
+  ih.ip_ttl = ttl;
   ih.ip_p = 17;
   ih.ip_sum = htons (0);
   ih.ip_src.s_addr = saddr->sin_addr.s_addr;
