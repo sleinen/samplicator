@@ -38,7 +38,7 @@ static int debug;
 
 enum peer_flags
 {
-  pf_RAW	= 0x0001,
+  pf_SPOOF	= 0x0001,
 };
 
 struct peer {
@@ -104,7 +104,7 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
   char tmp_buf[256];
   char *c;
   int fport;
-  int raw_p = 0;
+  int spoof_p = 0;
   int raw_sock = -1;
   int cooked_sock = -1;
   int i, n;
@@ -113,7 +113,7 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
   debug = 0;
   tx_delay = 0;
 
-  while ((i = getopt (argc, argv, "hd:p:x:r")) != -1)
+  while ((i = getopt (argc, argv, "hd:p:x:S")) != -1)
     switch (i) {
     case 'd': /* debug */
       debug = atoi (optarg);
@@ -124,8 +124,8 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
     case 'x': /* transmit delay */
       tx_delay = atoi (optarg);
       break;
-    case 'r': /* raw */
-      raw_p = 1;
+    case 'S': /* spoof */
+      spoof_p = 1;
       break;
     case 'h': /* help */
       usage (argv[0]);
@@ -151,9 +151,9 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
   /* fill in peer entries */
   for (i = optind, n = 0; i < argc; ++i, ++n)
     {
-      if (raw_p)
+      if (spoof_p)
 	{
-	  peers[n].flags |= pf_RAW;
+	  peers[n].flags |= pf_SPOOF;
 	}
       if (strlen (argv[i]) > 255)
 	{
@@ -199,7 +199,7 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
 
       peers[n].addr.sin_family = AF_INET;
 
-      if (peers[n].flags & pf_RAW)
+      if (peers[n].flags & pf_SPOOF)
 	{
 	  if (raw_sock == -1)
 	    {
@@ -207,7 +207,7 @@ parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
 		{
 		  if (errno == EPERM)
 		    {
-		      fprintf (stderr, "Not enough privilege for -r option---try again as root.\n");
+		      fprintf (stderr, "Not enough privilege for -S option---try again as root.\n");
 		    }
 		  else
 		    {
@@ -335,7 +335,7 @@ Supported options:\n\
   -d <level>               debug level\n\
   -p <port>                UDP port to accept flows on (default %d)\n\
   -x <delay>               transmit delay in microseconds\n\
-  -r                       use raw socket to maintain source addresses\n\
+  -S                       maintain (spoof) source addresses\n\
   -h                       print this usage message and exit\n\
 \n\
 Specifying receivers:\n\
@@ -356,7 +356,7 @@ send_pdu_to_peer (peer, fpdu, length, source_addr)
      size_t length;
      struct sockaddr_in * source_addr;
 {
-  if (peer->flags & pf_RAW)
+  if (peer->flags & pf_SPOOF)
     {
       return raw_send_from_to (peer->fd, fpdu, length,
 			       source_addr, &peer->addr);

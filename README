@@ -32,7 +32,7 @@ Where each <option> can be one of
 			incoming packets
 	-x <delay>	to specify a transmission delay in units of
 			microseconds
-	-r		use raw socket to maintain source addresses
+	-S		maintain (spoof) source addresses
 	-h		to print a usage message and exit
 
 and each <destination> should be specified as
