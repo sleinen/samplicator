@@ -17,4 +17,5 @@ using "make install":
 
 The configure script accepts many arguments, some of which may even be
 useful.  Using "./configure --prefix ..." you can specify a directory
-other than /usr/local to be used as an installation destination.
+other than /usr/local to be used as an installation destination.  Call
+"./configure --help" to get a list of arguments accepted by configure.
