@@ -1,4 +1,5 @@
 AC_INIT(samplicate.c)
+AC_INIT_AUTOMAKE(samplicate, 1.0)
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_CHECK_LIB(nsl,gethostbyname)
