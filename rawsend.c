@@ -58,7 +58,6 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
      struct sockaddr_in *daddr;
 {
   int length;
-  int flags = 0;
   int sockerr;
   int sockerr_size = sizeof sockerr;
   struct sockaddr_in dest_a;
@@ -69,6 +68,7 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   struct msghdr mh;
   struct iovec iov[3];
 #else /* not HAVE_SYS_UIO_H */
+  int flags = 0;
   static char *msgbuf = 0;
   static size_t msgbuflen = 0;
   static size_t next_alloc_size = 1;
@@ -156,9 +156,10 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
 	  fprintf (stderr, "socket error: %d\n", sockerr);
 	  fprintf (stderr, "socket: %s\n",
 		   strerror (errno));
-	  exit (1);
 	}
+      return -1;
     }
+  return 0;
 }
 
 extern int
@@ -176,6 +177,21 @@ make_raw_udp_socket (sockbuflen)
 		   sockbuflen, strerror (errno));
 	}
     }
+
+#ifdef IP_HDRINCL
+  /* Some BSD-derived systems require the IP_HDRINCL socket option for
+     header spoofing.  Contributed by Vladimir A. Jakovenko
+     <vovik@lucky.net> */
+    {
+      int on = 1;
+      if (setsockopt (s, IPPROTO_IP, IP_HDRINCL, &on, sizeof(on)) < 0)
+	{
+	  fprintf (stderr, "setsockopt(IP_HDRINCL,%d): %s\n",
+		   on, strerror (errno));
+	}
+    }
+#endif /* IP_HDRINCL */  
+ 
   return s;
 }
 
