@@ -34,6 +34,8 @@ extern int inet_aton (const char *, struct in_addr *);
 
 #define FLOWPORT 2000 
 
+#define DEFAULT_SOCKBUFLEN 65536
+
 enum peer_flags
 {
   pf_SPOOF	= 0x0001,
@@ -89,11 +91,6 @@ int main(argc, argv)
 int argc;
 char **argv;
 {
-  struct peer * peers;
-  int npeers;
-  int fport;
-  unsigned tx_delay;
-  long sockbuflen;
   struct samplicator_context ctx;
 
   parse_args (argc, argv, &ctx);
@@ -116,7 +113,7 @@ parse_args (argc, argv, ctx)
   int cooked_sock = -1;
   int i, n;
 
-  ctx->sockbuflen = -1;
+  ctx->sockbuflen = DEFAULT_SOCKBUFLEN;
   ctx->fport = FLOWPORT;
   ctx->debug = 0;
   ctx->tx_delay = 0;
@@ -235,7 +232,8 @@ parse_args (argc, argv, ctx)
 	    {
 	      if ((cooked_sock = make_cooked_udp_socket (ctx->sockbuflen)) < 0)
 		{
-		  fprintf (stderr, "creating cooked socket: %s\n", strerror(errno));
+		  fprintf (stderr, "creating cooked socket: %s\n",
+			   strerror(errno));
 		  exit (1);
 		}
 	    }
@@ -260,7 +258,14 @@ init_samplicator (ctx)
     fprintf (stderr, "socket(): %s\n", strerror (errno));
     exit(1);
   }
-  if (bind (ctx->fsockfd, (struct sockaddr*)&local_address, sizeof local_address) < 0) {
+  if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_RCVBUF,
+		  (char *) &ctx->sockbuflen, sizeof ctx->sockbuflen) == -1)
+    {
+      fprintf (stderr, "setsockopt(SO_RCVBUF,%ld): %s\n",
+	       ctx->sockbuflen, strerror (errno));
+    }
+  if (bind (ctx->fsockfd,
+	    (struct sockaddr*)&local_address, sizeof local_address) < 0) {
     fprintf (stderr, "bind(): %s\n", strerror (errno));
     exit (1);
   }
@@ -341,10 +346,11 @@ usage (progname)
 \n\
 Supported options:\n\
 \n\
-  -d <level>               debug level\n\
   -p <port>                UDP port to accept flows on (default %d)\n\
-  -x <delay>               transmit delay in microseconds\n\
+  -d <level>               debug level\n\
+  -b <size>                set socket buffer size (default %lu)\n\
   -S                       maintain (spoof) source addresses\n\
+  -x <delay>               transmit delay in microseconds\n\
   -h                       print this usage message and exit\n\
 \n\
 Specifying receivers:\n\
@@ -355,7 +361,9 @@ where:
   port                     is the UDP port to send to (default %d)\n\
   freq                     is the sampling rate (default 1)\n\
 ",
-	   progname, FLOWPORT, FLOWPORT);
+	   progname,
+	   FLOWPORT, (unsigned long) DEFAULT_SOCKBUFLEN,
+	   FLOWPORT);
 }
 
 static int
@@ -387,12 +395,8 @@ make_cooked_udp_socket (sockbuflen)
     return s;
   if (sockbuflen != -1)
     {
-      if (setsockopt (s, SOL_SOCKET, SO_RCVBUF, &sockbuflen, sizeof sockbuflen) == -1)
-	{
-	  fprintf (stderr, "setsockopt(SO_RCVBUF,%ld): %s\n",
-		   sockbuflen, strerror (errno));
-	}
-      if (setsockopt (s, SOL_SOCKET, SO_SNDBUF, &sockbuflen, sizeof sockbuflen) == -1)
+      if (setsockopt (s, SOL_SOCKET, SO_SNDBUF,
+		      (char *) &sockbuflen, sizeof sockbuflen) == -1)
 	{
 	  fprintf (stderr, "setsockopt(SO_SNDBUF,%ld): %s\n",
 		   sockbuflen, strerror (errno));
