@@ -50,6 +50,8 @@ struct peer {
 static void usage(const char *);
 static int send_pdu_to_peer (struct peer *, const void *, size_t,
 			     struct sockaddr_in *);
+static int parse_args (int, char **, struct peer **, int *, int *, unsigned *);
+static int samplicate (struct peer *, int, int, unsigned);
 
 /* Work around a GCC compatibility problem with respect to the
    inet_ntoa() system function */
@@ -73,20 +75,36 @@ int main(argc, argv)
 int argc;
 char **argv;
 {
+  struct peer * peers;
+  int npeers;
+  int fport;
+  unsigned tx_delay;
+
+  parse_args (argc, argv, &peers, &npeers, &fport, &tx_delay);
+  samplicate (peers, npeers, fport, tx_delay);
+}
+
+static int
+parse_args (argc, argv, peersp, npeersp, fportp, tx_delayp)
+     int argc;
+     char **argv;
+     struct peer **peersp;
+     int *npeersp;
+     int *fportp;
+     unsigned *tx_delayp;
+{
   extern char *optarg;
   extern int errno, optind;
-  unsigned char fpdu[PDU_SIZE];
-  struct sockaddr_in local_address;
-  struct sockaddr_in remote_address;
-  int fsockfd;
-  int fport, i, len, n;
-  int npeers, tx_delay;
+  int npeers;
+  unsigned tx_delay;
   struct peer *peers;
   char tmp_buf[256];
   char *c;
+  int fport;
   int raw_p = 0;
   int raw_sock = -1;
   int cooked_sock = -1;
+  int i, n;
 
   fport = FLOWPORT;
   debug = 0;
@@ -210,6 +228,24 @@ char **argv;
 	  peers[n].fd = cooked_sock;
 	}
     }
+  *peersp = peers;
+  *npeersp = npeers;
+  *fportp = fport;
+  *tx_delayp = tx_delay;
+}
+
+static int
+samplicate (peers, npeers, fport, tx_delay)
+     struct peer * peers;
+     int npeers;
+     int fport;
+     unsigned tx_delay;
+{
+  unsigned char fpdu[PDU_SIZE];
+  struct sockaddr_in local_address;
+  struct sockaddr_in remote_address;
+  int fsockfd;
+  int i, len, n;
 
   /* setup to receive flows */
   bzero (&local_address, sizeof local_address);
@@ -231,10 +267,17 @@ char **argv;
       len = sizeof remote_address;
       if ((n = recvfrom (fsockfd, (char*)fpdu,
 			 sizeof (fpdu), 0,
-			 (struct sockaddr*) &remote_address, &len)) == -1) {
-	fprintf(stderr, "recvfrom(): %s\n", strerror(errno));
-	exit (1);
-      }
+			 (struct sockaddr*) &remote_address, &len)) == -1)
+	{
+	  fprintf(stderr, "recvfrom(): %s\n", strerror(errno));
+	  exit (1);
+	}
+      if (n > PDU_SIZE)
+	{
+	  fprintf (stderr, "Warning: %d excess bytes discarded\n",
+		   n-PDU_SIZE);
+	  n = PDU_SIZE;
+	}
       if (len != sizeof remote_address)
 	{
 	  fprintf (stderr, "recvfrom() return address length %d - expected %d\n",
@@ -273,7 +316,7 @@ char **argv;
 	      --peers[i].freqcount;
 	    }
 	  if (tx_delay)
-	    usleep ((unsigned)tx_delay);
+	    usleep (tx_delay);
 	}
     }
 }
