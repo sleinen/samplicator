@@ -85,6 +85,8 @@ char **argv;
   char tmp_buf[256];
   char *c;
   int raw_p = 0;
+  int raw_sock = -1;
+  int cooked_sock = -1;
 
   fport = FLOWPORT;
   debug = 0;
@@ -176,26 +178,37 @@ char **argv;
 
       peers[n].addr.sin_family = AF_INET;
 
-      if (peers[n].flags & pf_RAW) {
-	if ((peers[n].fd = make_raw_udp_socket (& peers[n].addr)) < 0)
-	  {
-	    if (errno == EPERM)
-	      {
-		fprintf (stderr, "Not enough privilege for -r option---try again as root.\n");
-	      }
-	    else
-	      {
-		fprintf (stderr, "creating raw socket: %s\n", strerror(errno));
-	      }
-	    exit (1);
-	  }
-      } else {
-	if ((peers[n].fd = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
-	  {
-	    fprintf (stderr, "socket(): %s\n", strerror(errno));
-	    exit (1);
-	  }
-      }
+      if (peers[n].flags & pf_RAW)
+	{
+	  if (raw_sock == -1)
+	    {
+	      if ((raw_sock = make_raw_udp_socket ()) < 0)
+		{
+		  if (errno == EPERM)
+		    {
+		      fprintf (stderr, "Not enough privilege for -r option---try again as root.\n");
+		    }
+		  else
+		    {
+		      fprintf (stderr, "creating raw socket: %s\n", strerror(errno));
+		    }
+		  exit (1);
+		}
+	    }
+	  peers[n].fd = raw_sock;
+	}
+      else
+	{
+	  if (cooked_sock == -1)
+	    {
+	      if ((cooked_sock = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
+		{
+		  fprintf (stderr, "socket(): %s\n", strerror(errno));
+		  exit (1);
+		}
+	    }
+	  peers[n].fd = cooked_sock;
+	}
     }
 
   /* setup to receive flows */
