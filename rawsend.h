@@ -5,8 +5,11 @@
  Author:       Simon Leinen  <simon@limmat.switch.ch>
  */
 
+#define DEFAULT_TTL 64
+
 extern int make_raw_udp_socket (long);
 extern int raw_send_from_to (int,
 			     const void *, size_t,
 			     struct sockaddr_in *,
-			     struct sockaddr_in *);
+			     struct sockaddr_in *,
+			     int);
