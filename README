@@ -1,0 +1,54 @@
+			   UDP Samplicator
+			   ===============
+
+This small program receives UDP datagrams on a given port, and resends
+those datagrams to a specified set of receivers.  In addition, a
+sampling divisor N may be specified individually for each receiver,
+which will then only receive one in N of the received packets.
+
+The orginal author of the package could not be identified with
+absolute certainty.  David Harmelin <david.harmelin@dante.org.uk> of
+DANTE has added the sampling feature, and Simon Leinen
+<simon@switch.ch> removed lots of unused code and packaged the program
+for easier compilation/installation.
+
+			     INSTALLATION
+
+This distribution uses GNU configure for portability and flexibility
+of installation.  You must configure the program for your system
+before you can compile it using make:
+
+	$ ./configure
+	$ make
+
+The program can then be installed (under /usr/local/bin by default)
+using "make install":
+
+	$ make install
+
+The configure script accepts many arguments, some of which may even be
+useful.  Using "./configure --prefix ..." you can specify a directory
+other than /usr/local to be used as an installation destination.
+
+				USAGE
+
+The usage convention for the program is
+
+	$ samplicate [<option>...] [<destination>...]
+
+Where each <option> can be one of
+
+	-d <level>	to set the debugging level
+	-p <port>	to set the UDP port on which to listen for
+			incoming packets
+	-x <delay>	to specify a transmission delay in units of
+			microseconds
+	-h		to print a usage message and exit
+
+and each <destination> should be specified as
+<addr>[/<port>[/<interval>]], where
+
+	<addr>		is the IP address of the receiver
+	<port>		is the port UDP number of the receiver
+	<freq>		is the number of received datagram between
+			each copied datagram for this receiver.
