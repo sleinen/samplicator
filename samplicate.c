@@ -43,11 +43,12 @@ struct peer {
   int			freqcount;
 };
 
-static in_addr_t
-scan_ip(const char *s)
+static int
+scan_ip (const char *s, struct in_addr *out)
 {
-  in_addr_t addr = 0;
+  struct in_addr addr;
   unsigned n;
+  addr.s_addr = 0;
  
   while (1) {
  
@@ -56,20 +57,29 @@ scan_ip(const char *s)
  
     /* nibble's are . bounded */
     while (*s && *s != '.')
-      n = n * 10 + *s++ - '0';
+      {
+	if (*s < '0' || *s > '9')
+	  {
+	    return -1;
+	  }
+	n = n * 10 + *s++ - '0';
+      }
  
     /* shift in the nibble */
-    addr <<=8;
-    addr |= n & 0xff;
+    addr.s_addr <<=8;
+    addr.s_addr |= n & 0xff;
  
     /* return on end of string */
     if (!*s)
-      return addr;
+      {
+	*out = addr;
+	return 0;
+      }
  
     /* skip the . */
     ++s;
   } /* forever */
-} /* scan_ip */
+}
 
 /* Work around a GCC compatibility problem with respect to the
    inet_ntoa() system function */
@@ -180,29 +190,33 @@ char **argv;
       /* printf("Frequency: %d\n", peers[n].freq); */
 
       /* extract the ip address part */
-      peers[n].addr.sin_addr.s_addr = scan_ip(tmp_buf);
+      if (scan_ip (tmp_buf, & peers[n].addr.sin_addr) == -1)
+	{
+	  fprintf (stderr, "parsing IP address failed\n");
+	  exit (1);
+	}
 
       peers[n].addr.sin_family = AF_INET;
 
-      if ((peers[n].fd = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+      if ((peers[n].fd = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
 	{
-	  fprintf(stderr, "socket(): %s\n", strerror(errno));
+	  fprintf (stderr, "socket(): %s\n", strerror(errno));
 	  exit (1);
 	}
     }
 
   /* setup to receive flows */
-  bzero(&local_address, sizeof local_address);
+  bzero (&local_address, sizeof local_address);
   local_address.sin_family = AF_INET;
-  local_address.sin_addr.s_addr = htonl(INADDR_ANY);
-  local_address.sin_port = htons(fport);
+  local_address.sin_addr.s_addr = htonl (INADDR_ANY);
+  local_address.sin_port = htons (fport);
 
-  if ((fsockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-    fprintf(stderr, "socket(): %s\n", strerror(errno));
+  if ((fsockfd = socket (AF_INET, SOCK_DGRAM, 0)) < 0) {
+    fprintf (stderr, "socket(): %s\n", strerror (errno));
     exit(1);
   }
-  if (bind(fsockfd, (struct sockaddr*)&local_address, sizeof local_address) < 0) {
-    fprintf(stderr, "bind(): %s\n", strerror(errno));
+  if (bind (fsockfd, (struct sockaddr*)&local_address, sizeof local_address) < 0) {
+    fprintf (stderr, "bind(): %s\n", strerror (errno));
     exit (1);
   }
 
