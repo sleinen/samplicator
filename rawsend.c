@@ -124,8 +124,8 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   ih.ip_sum = ip_header_checksum (&ih);
 
   dest_a.sin_family = AF_INET;
-  dest_a.sin_port = IPPROTO_UDP;
-  dest_a.sin_addr.s_addr = htonl (0x7f000001);
+  dest_a.sin_port = daddr->sin_port;
+  dest_a.sin_addr.s_addr = daddr->sin_addr.s_addr;
 
 #ifdef HAVE_SYS_UIO_H
   iov[0].iov_base = (char *) &ih;
