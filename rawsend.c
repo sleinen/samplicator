@@ -10,6 +10,9 @@
 
 #include "config.h"
 
+#ifdef HAVE_STDLIB_H
+#include <stdlib.h>
+#endif
 #include <sys/types.h>
 #include <string.h>
 #if STDC_HEADERS
@@ -38,6 +41,8 @@
 
 #include "rawsend.h"
 
+#define MAX_IP_DATAGRAM_SIZE 65535
+
 #define DEFAULT_TTL 64
 
 static unsigned ip_header_checksum (const void * header);
@@ -57,6 +62,10 @@ ip_header_checksum (const void * header)
   return ~csum;
 }
 
+static char *msgbuf = 0;
+static size_t msgbuflen = 0;
+static size_t next_alloc_size = 1;
+
 int
 raw_send_from_to (s, msg, msglen, saddr, daddr)
      int s;
@@ -65,7 +74,6 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
      struct sockaddr_in *saddr;
      struct sockaddr_in *daddr;
 {
-  char message[MAX_IP_DATAGRAM_SIZE];
   int length;
   int flags = 0;
   int sockerr;
@@ -80,11 +88,24 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   uh.uh_sum = 0;
 
   length = msglen + sizeof uh + sizeof ih;
-  if (length > MAX_IP_DATAGRAM_SIZE)
+  if (length > msgbuflen)
     {
-      return -1;
+      if (length > MAX_IP_DATAGRAM_SIZE)
+	{
+	  return -1;
+	}
+      if (msgbuf != (char *) 0)
+	free (msgbuf);
+      while (next_alloc_size < length)
+	next_alloc_size *= 2;
+      if ((msgbuf = malloc (next_alloc_size)) == (char *) 0)
+	{
+	  fprintf (stderr, "Out of memory!\n");
+	  return -1;
+	}
+      msgbuflen = next_alloc_size;
+      next_alloc_size *= 2;
     }
-
   ih.ip_hl = (sizeof ih+3)/4;
   ih.ip_v = 4;
   ih.ip_tos = 0;
@@ -98,15 +119,15 @@ raw_send_from_to (s, msg, msglen, saddr, daddr)
   ih.ip_dst.s_addr = daddr->sin_addr.s_addr;
   ih.ip_sum = htons (ip_header_checksum (&ih));
 
-  memcpy (message+sizeof ih+sizeof uh, msg, msglen);
-  memcpy (message+sizeof ih, & uh, sizeof uh);
-  memcpy (message, & ih, sizeof ih);
+  memcpy (msgbuf+sizeof ih+sizeof uh, msg, msglen);
+  memcpy (msgbuf+sizeof ih, & uh, sizeof uh);
+  memcpy (msgbuf, & ih, sizeof ih);
 
   dest_a.sin_family = AF_INET;
   dest_a.sin_port = IPPROTO_UDP;
   dest_a.sin_addr.s_addr = htonl (0x7f000001);
 
-  if (sendto (s, message, length, flags,
+  if (sendto (s, msgbuf, length, flags,
 	      (struct sockaddr *)&dest_a, sizeof dest_a) == -1)
     {
       if (getsockopt (s, SOL_SOCKET, SO_ERROR, &sockerr, &sockerr_size) == 0)
