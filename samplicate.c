@@ -46,9 +46,8 @@ struct peer {
 static int
 scan_ip (const char *s, struct in_addr *out)
 {
-  struct in_addr addr;
+  long addr = 0;
   unsigned n;
-  addr.s_addr = 0;
  
   while (1) {
  
@@ -70,13 +69,13 @@ scan_ip (const char *s, struct in_addr *out)
       }
  
     /* shift in the nibble */
-    addr.s_addr <<=8;
-    addr.s_addr |= n & 0xff;
+    addr <<=8;
+    addr |= n & 0xff;
  
     /* return on end of string */
     if (!*s)
       {
-	*out = addr;
+	out->s_addr = htonl (addr);
 	return 0;
       }
  
