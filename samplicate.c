@@ -63,6 +63,10 @@ scan_ip (const char *s, struct in_addr *out)
 	    return -1;
 	  }
 	n = n * 10 + *s++ - '0';
+	if (n > 255)
+	  {
+	    return -1;
+	  }
       }
  
     /* shift in the nibble */
