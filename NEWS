@@ -2,6 +2,11 @@ Samplicator NEWS -- history of user-visible changes	-*- text -*-
 
 Copyright (c) 2000 Simon Leinen  <simon@switch.ch>
 
+Version 1.2.1:
+
+Fixed a stupid bug introduced in the last change.  This will teach me
+to always use `gcc -Wall'.
+
 Version 1.2:
 
 Added `-b' argument to set the size of the socket buffers.  The
