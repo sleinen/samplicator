@@ -8,7 +8,18 @@
  as if it came from a given source address.
  */
 
+#include "config.h"
+
 #include <sys/types.h>
+#include <string.h>
+#if STDC_HEADERS
+# define bzero(b,n) memset(b,0,n)
+#else
+# include <strings.h>
+# ifndef HAVE_MEMCPY
+#  define memcpy(d, s, n) bcopy ((s), (d), (n))
+# endif
+#endif
 #ifdef __sun__
 #define USE_BSD 1
 #define __FAVOR_BSD 1
