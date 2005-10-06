@@ -151,6 +151,7 @@ parse_args (argc, argv, ctx, sctx)
   ctx->fport = FLOWPORT;
   ctx->debug = 0;
   ctx->sources = NULL;
+  ctx->defaultflags = 0;
   /* assume that command-line supplied peers want to get all data */
   sctx->source.s_addr = 0;
   sctx->mask.s_addr = 0;
