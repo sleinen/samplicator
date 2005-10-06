@@ -1,3 +1,43 @@
+2005-10-06  Simon Leinen  <simon@limmat.switch.ch>
+
+	* configure.in (AM_INIT_AUTOMAKE): Version 1.3.2 -> 1.3.3.
+
+	* AUTHORS: Mention Jurai Sucik.
+
+	* samplicate.c (parse_args): Don't forget to clear `defaultflags'.
+	Kudos to Juraj Sucik <Juraj.Sucik@cern.ch> for finding this bug!
+
+2001-09-18  Simon Leinen  <simon@limmat.switch.ch>
+
+	* samplicate.c (parse_args): Terminate on illegal flow port.
+
+	* configure.in (AM_INIT_AUTOMAKE): Version 1.3.1 -> 1.3.2.
+
+	* rawsend.c (raw_send_from_to):
+	Convert host to network order in IP header fields
+	for some systems that are known to require that.
+
+	* samplicate.c (PORT_SEPARATOR):
+	Changed from `:' to `/' to retain backwards
+	compatibility.
+
+	(usage): Use macros PORT_SEPARATOR, FREQ_SEPARATOR and TTL_SEPARATOR
+	in usage message.
+
+	(parse_args, parse_peers): Range checks on port and TTL arguments.
+
+	* ChangeLog: *** empty log message ***
+
+	* samplicate.c: New parsing code from Vladimir A. Jakovenko.
+
+	* rawsend.h (DEFAULT_TTL): Moved here from `rawsend.c'.
+
+	(raw_send_from_to): Take additional `ttl' argument.
+
+	* rawsend.c (DEFAULT_TTL): Moved to `rawsend.h'.
+
+	(raw_send_from_to): Take additional `ttl' argument.
+
 2001-09-18  Simon Leinen  <simon@limmat.switch.ch>
 
 	* samplicate.c: New parsing code from Vladimir A. Jakovenko.
