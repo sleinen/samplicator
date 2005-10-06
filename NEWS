@@ -2,6 +2,11 @@ Samplicator NEWS -- history of user-visible changes	-*- text -*-
 
 Copyright (c) 2000 Simon Leinen  <simon@switch.ch>
 
+Version 1.3.3:
+
+Fixed an initialization bug that could randomly cause spoofing mode to
+be enabled even without `-S'.
+
 Version 1.3.2:
 
 Fixed argument parsing and allow TTL specification.
