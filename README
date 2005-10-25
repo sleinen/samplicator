@@ -28,6 +28,8 @@ The usage convention for the program is
 Where each <option> can be one of
 
 	-d <level>	to set the debugging level
+	-s <address>	to set interface address on which to listen
+			for incoming packets (default any)
 	-p <port>	to set the UDP port on which to listen for
 			incoming packets (default 2000)
 	-b <buflen>	size of receive buffer (default 65536)
@@ -35,6 +37,7 @@ Where each <option> can be one of
 	-x <delay>	to specify a transmission delay in units of
 			microseconds
 	-S		maintain (spoof) source addresses
+	-f		fork program into background
 	-h		to print a usage message and exit
 
 and each <destination> should be specified as
