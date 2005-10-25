@@ -2,8 +2,7 @@ The orginal author of the package could not be identified with
 absolute certainty.  He or she is believed to be from the Italian
 research networking community.
 
-David Harmelin <david.harmelin@dante.org.uk> of DANTE has added the
-sampling feature.
+David Harmelin (DANTE) has added the sampling feature.
 
 Simon Leinen <simon@switch.ch> removed lots of unused code,
 implemented source address spoofing (tested mainly under Solaris) and
