@@ -66,9 +66,11 @@ struct peer {
 
 struct samplicator_context {
   struct source_context *sources;
+  struct in_addr	faddr;
   int			fport;
   long			sockbuflen;
   int			debug;
+  int			fork;
   enum peer_flags	defaultflags;
 
   int			fsockfd;
@@ -148,8 +150,10 @@ parse_args (argc, argv, ctx, sctx)
   int i;
 
   ctx->sockbuflen = DEFAULT_SOCKBUFLEN;
+  ctx->faddr.s_addr = htonl (INADDR_ANY);
   ctx->fport = FLOWPORT;
   ctx->debug = 0;
+  ctx->fork = 0;
   ctx->sources = NULL;
   ctx->defaultflags = 0;
   /* assume that command-line supplied peers want to get all data */
@@ -158,7 +162,7 @@ parse_args (argc, argv, ctx, sctx)
 
   sctx->tx_delay = 0;
 
-  while ((i = getopt (argc, argv, "hb:d:p:x:c:S")) != -1)
+  while ((i = getopt (argc, argv, "hb:d:p:s:x:c:fS")) != -1)
     {
       switch (i)
 	{
@@ -181,6 +185,14 @@ should be between 0 and 65535\n",
 	      exit (1);
 	    }
 	  break;
+	case 's': /* flow address */
+	  if (inet_aton (optarg, &ctx->faddr) == 0)
+	    {
+	      fprintf (stderr, "parsing IP address (%s) failed\n", optarg);
+	      usage (argv[0]);
+	      exit (1);
+	    }
+	  break;
 	case 'x': /* transmit delay */
 	  sctx->tx_delay = atoi (optarg);
 	  break;
@@ -189,6 +201,9 @@ should be between 0 and 65535\n",
 	  break;
 	case 'c': /* config file */
 	  read_cf_file(optarg,ctx);
+	  break;
+	case 'f': /* fork */
+	  ctx->fork = 1;
 	  break;
 	case 'h': /* help */
 	  usage (argv[0]);
@@ -461,7 +476,7 @@ init_samplicator (ctx)
   /* setup to receive flows */
   bzero (&local_address, sizeof local_address);
   local_address.sin_family = AF_INET;
-  local_address.sin_addr.s_addr = htonl (INADDR_ANY);
+  local_address.sin_addr.s_addr = ctx->faddr.s_addr;
   local_address.sin_port = htons (ctx->fport);
 
   if ((ctx->fsockfd = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
@@ -491,6 +506,7 @@ samplicate (ctx)
   unsigned char fpdu[PDU_SIZE];
   struct sockaddr_in remote_address;
   struct source_context *sctx;
+  pid_t pid;
   int i, len, n;
 
   /* check is there actually at least one configured data receiver */
@@ -500,6 +516,26 @@ samplicate (ctx)
     {
       fprintf(stderr, "You have to specify at least one receiver, exiting\n");
       exit(1);
+    }
+
+  if (ctx->fork == 1)
+    {
+      pid = fork();
+      if (pid == -1)
+        {
+          fprintf (stderr, "failed to fork process\n");
+          exit (1);
+        }
+      else if (pid > 0)
+        { /* kill the parent */
+          exit (0);
+        }
+      else
+        { /* end interaction with shell */
+          fclose(stdin);
+          fclose(stdout);
+          fclose(stderr);
+        }
     }
 
   while (1)
@@ -586,11 +622,13 @@ usage (progname)
 Supported options:\n\
 \n\
   -p <port>                UDP port to accept flows on (default %d)\n\
+  -s <address>             Interface address to accept flows on (default any)\n\
   -d <level>               debug level\n\
   -b <size>                set socket buffer size (default %lu)\n\
   -S                       maintain (spoof) source addresses\n\
   -x <delay>               transmit delay in microseconds\n\
   -c configfile            specify a config file to read\n\
+  -f                       fork program into background\n\
   -h                       print this usage message and exit\n\
 \n\
 Specifying receivers:\n\
