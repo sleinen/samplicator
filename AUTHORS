@@ -18,3 +18,7 @@ and OpenBSD.  These require an additional socket option (IP_HDRINCL).
 Juraj Sucik <Juraj.Sucik@cern.ch> found a bug that would cause the
 `spoof' option to be randomly enabled even though the `-S' argument
 wasn't passed to the program.
+
+James Sella <sella@digital-genesis.com> contributed the `-s' (bind to
+specific address) and `-f' (fork into background) options.
+
