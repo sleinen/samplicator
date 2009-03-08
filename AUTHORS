@@ -5,8 +5,8 @@ research networking community.
 David Harmelin (DANTE) has added the sampling feature.
 
 Simon Leinen <simon@switch.ch> removed lots of unused code,
-implemented source address spoofing (tested mainly under Solaris) and
-packaged the program for easier compilation/installation.
+implemented source address spoofing and packaged the program for
+easier compilation/installation.
 
 Otmar Lendl <O.Lendl@KPNQwest.at> added source-dependent rules
 and config-file parsing.
@@ -22,3 +22,5 @@ wasn't passed to the program.
 James Sella <sella@digital-genesis.com> contributed the `-s' (bind to
 specific address) and `-f' (fork into background) options.
 
+Gary Mikula <g2ugzm@hotmail.com> contributed UDP checksum
+generation in `spoof' mode.
