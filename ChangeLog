@@ -1,4 +1,53 @@
-2005-10-06  Simon Leinen  <simon@limmat.switch.ch>
+2006-03-28  Simon Leinen  <simon.leinen@switch.ch>
+
+	* samplicate.c (enum peer_flags): New flag `pf_CHECKSUM'.
+
+	(parse_args): Recognize `-n' flag.
+
+	* README: Document `-n' flag.
+
+	* rawsend.h (raw_send_from_to): Added `flags' argument.
+
+	(RAWSEND_COMPUTE_UDP_CHECKSUM): Defined.
+
+	* rawsend.c (raw_send_from_to): Added `flags' argument.
+
+	(udp_sum_calc): New function, compute UDP checksum.
+
+	* AUTHORS: Document UDP checksum generation.
+
+2005-10-26  Simon Leinen  <simon.leinen@switch.ch>
+
+	* AUTHORS: Added note on James Sella's contributions.
+
+	* samplicate.c:
+	Integrated support for the `-s' (source address to bind() to) and `-f'
+	(fork) options contributed by James Sella.
+
+2005-10-25  Simon Leinen  <simon.leinen@switch.ch>
+
+	* AUTHORS: Deleted David's e-mail address.
+
+	* README: Document `-s' and `-f' options (courtesy of James Sella).
+
+	* configure.in: Incremented version to 1.3.4.
+
+	* NEWS: Documented new options in 1.3.4.
+
+	Updated copyright notice.
+
+2005-10-06  Simon Leinen  <simon.leinen@switch.ch>
+
+	* NEWS: Added 1.3.3 notes.
+
+	* configure.in: Incremented version to 1.3.3.
+
+	* AUTHORS: Mention Jurai Sucik.
+
+	* samplicate.c (parse_args): Don't forget to clear `defaultflags'.
+	Kudos to Juraj Sucik <Juraj.Sucik@cern.ch> for finding this bug!
+
+2005-10-06  Simon Leinen  <simon.leinen@switch.ch>
 
 	* configure.in (AM_INIT_AUTOMAKE): Version 1.3.2 -> 1.3.3.
 
@@ -7,7 +56,7 @@
 	* samplicate.c (parse_args): Don't forget to clear `defaultflags'.
 	Kudos to Juraj Sucik <Juraj.Sucik@cern.ch> for finding this bug!
 
-2001-09-18  Simon Leinen  <simon@limmat.switch.ch>
+2001-09-18  Simon Leinen  <simon.leinen@switch.ch>
 
 	* samplicate.c (parse_args): Terminate on illegal flow port.
 
@@ -38,7 +87,7 @@
 
 	(raw_send_from_to): Take additional `ttl' argument.
 
-2001-09-18  Simon Leinen  <simon@limmat.switch.ch>
+2001-09-18  Simon Leinen  <simon.leinen@switch.ch>
 
 	* samplicate.c: New parsing code from Vladimir A. Jakovenko.
 
@@ -50,11 +99,11 @@
 
 	(raw_send_from_to): Take additional `ttl' argument.
 
-2001-09-04  Simon Leinen  <simon@limmat.switch.ch>
+2001-09-04  Simon Leinen  <simon.leinen@switch.ch>
 
 	* rawsend.c: Suppress a few type warnings on older systems.
 
-2001-09-02  Simon Leinen  <simon@limmat.switch.ch>
+2001-09-02  Simon Leinen  <simon.leinen@switch.ch>
 
 	* samplicate.c: Include <ctype.h> if system has it.
 
@@ -74,7 +123,7 @@
 
 	* AUTHORS: Added acknowledgement to Vladimir Jakovenko.
 
-2001-07-24  Simon Leinen  <simon@limmat.switch.ch>
+2001-07-24  Simon Leinen  <simon.leinen@switch.ch>
 
 	* samplicate.c: No longer include <strings.h> by default.
 
@@ -97,7 +146,7 @@
 
 	Added Otmar Lendl.
 
-2001-07-24  Simon Leinen  <simon@limmat.switch.ch>
+2001-07-24  Simon Leinen  <simon.leinen@switch.ch>
 
 	* samplicate.c: No longer include <strings.h> by default.
 
@@ -124,7 +173,7 @@
 
 	* NEWS: Document 1.3 changes: `-c' option.
 
-2000-01-20  Simon Leinen  <simon@limmat.switch.ch>
+2000-01-20  Simon Leinen  <simon.leinen@switch.ch>
 
 	* rawsend.c: Use sendmsg() to avoid copying the IP and UDP headers
 	and the received datagram to a separate buffer.
@@ -191,12 +240,12 @@
 
 	* Makefile.am (EXTRA_PROGRAMS): New macro, put `rawtest' here.
 
-2000-01-19  Simon Leinen  <simon@limmat.switch.ch>
+2000-01-19  Simon Leinen  <simon.leinen@switch.ch>
 
 	* AUTHORS, ChangeLog, COPYING, INSTALL, Makefile.am, NEWS,
 	rawtest.c, rawsend.h, rawsend.c: New files.
 
-2000-01-18  Simon Leinen  <simon@limmat.switch.ch>
+2000-01-18  Simon Leinen  <simon.leinen@switch.ch>
 
 	* samplicate.c (scan_ip): Fixed for little-endian systems.  Return
 	error if octet > 255.  Use pointer argument to avoid returning a
@@ -204,7 +253,7 @@
 
 	* Makefile.in (LIBS): Set from @LIBS@.
 
-1999-10-29  Simon Leinen  <simon@limmat.switch.ch>
+1999-10-29  Simon Leinen  <simon.leinen@switch.ch>
 
 	* README (DOWNLOADING):
 	New section pointing to the WWW distribution URL.
@@ -215,11 +264,11 @@
 
 	* Makefile.in: Added variables and targets to simplify distribution.
 
-1999-10-06  Simon Leinen  <simon@limmat.switch.ch>
+1999-10-06  Simon Leinen  <simon.leinen@switch.ch>
 
 	* README: New file.
 
-1999-10-05  Simon Leinen  <simon@limmat.switch.ch>
+1999-10-05  Simon Leinen  <simon.leinen@switch.ch>
 
 	* Makefile.in: Simplified by removing APPS variable.
 
