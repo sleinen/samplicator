@@ -4,7 +4,7 @@ research networking community.
 
 David Harmelin (DANTE) has added the sampling feature.
 
-Simon Leinen <simon@switch.ch> removed lots of unused code,
+Simon Leinen <simon.leinen@switch.ch> removed lots of unused code,
 implemented source address spoofing and packaged the program for
 easier compilation/installation.
 

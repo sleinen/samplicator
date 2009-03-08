@@ -2,7 +2,7 @@
  inet_aton.c
 
  Date Created: Thu Jan 20 20:46:16 2000
- Author:       Simon Leinen  <simon@limmat.switch.ch>
+ Author:       Simon Leinen  <simon.leinen@switch.ch>
 
  This file implements the function inet_aton(), which converts a
  string in dotted-quad notation to an IPv4 address (struct in_addr).

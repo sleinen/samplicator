@@ -2,7 +2,7 @@
  rawsend.h
 
  Date Created: Wed Jan 19 18:53:42 2000
- Author:       Simon Leinen  <simon@limmat.switch.ch>
+ Author:       Simon Leinen  <simon.leinen@switch.ch>
  */
 
 #define DEFAULT_TTL 64

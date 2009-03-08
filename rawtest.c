@@ -2,7 +2,7 @@
  rawtest.c
 
  Date Created: Wed Jan 19 18:52:54 2000
- Author:       Simon Leinen  <simon@limmat.switch.ch>
+ Author:       Simon Leinen  <simon.leinen@switch.ch>
  */
 
 #include "config.h"
