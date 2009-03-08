@@ -52,6 +52,7 @@ extern int inet_aton (const char *, struct in_addr *);
 enum peer_flags
 {
   pf_SPOOF	= 0x0001,
+  pf_CHECKSUM	= 0x0002,
 };
 
 struct peer {
@@ -155,14 +156,14 @@ parse_args (argc, argv, ctx, sctx)
   ctx->debug = 0;
   ctx->fork = 0;
   ctx->sources = NULL;
-  ctx->defaultflags = 0;
+  ctx->defaultflags = pf_CHECKSUM;
   /* assume that command-line supplied peers want to get all data */
   sctx->source.s_addr = 0;
   sctx->mask.s_addr = 0;
 
   sctx->tx_delay = 0;
 
-  while ((i = getopt (argc, argv, "hb:d:p:s:x:c:fS")) != -1)
+  while ((i = getopt (argc, argv, "hb:d:p:s:x:c:fSn")) != -1)
     {
       switch (i)
 	{
@@ -171,6 +172,9 @@ parse_args (argc, argv, ctx, sctx)
 	  break;
 	case 'd': /* debug */
 	  ctx->debug = atoi (optarg);
+	  break;
+	case 'n': /* no UDP checksums */
+	  ctx->defaultflags &= ~pf_CHECKSUM;
 	  break;
 	case 'p': /* flow port */
 	  ctx->fport = atoi (optarg);
@@ -625,6 +629,7 @@ Supported options:\n\
   -s <address>             Interface address to accept flows on (default any)\n\
   -d <level>               debug level\n\
   -b <size>                set socket buffer size (default %lu)\n\
+  -n			   don't compute UDP checksum (leave at 0)\n\
   -S                       maintain (spoof) source addresses\n\
   -x <delay>               transmit delay in microseconds\n\
   -c configfile            specify a config file to read\n\
@@ -667,8 +672,11 @@ send_pdu_to_peer (peer, fpdu, length, source_addr)
 {
   if (peer->flags & pf_SPOOF)
     {
+      int rawsend_flags
+	= ((peer->flags & pf_CHECKSUM) ? RAWSEND_COMPUTE_UDP_CHECKSUM : 0);
       return raw_send_from_to (peer->fd, fpdu, length,
-			       source_addr, &peer->addr, peer->ttl);
+			       source_addr, &peer->addr, peer->ttl,
+			       rawsend_flags);
     }
   else
     {
