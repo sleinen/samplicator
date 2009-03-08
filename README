@@ -37,6 +37,7 @@ Where each <option> can be one of
 	-x <delay>	to specify a transmission delay in units of
 			microseconds
 	-S		maintain (spoof) source addresses
+	-n		don't compute UDP checksum (only relevant with -S)
 	-f		fork program into background
 	-h		to print a usage message and exit
 
