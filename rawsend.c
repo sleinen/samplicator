@@ -2,7 +2,7 @@
  rawsend.c
 
  Date Created: Tue Jan 18 12:13:31 2000
- Author:       Simon Leinen  <simon@limmat.switch.ch>
+ Author:       Simon Leinen  <simon.leinen@switch.ch>
 
  Send a UDP datagram to a given destination address, but make it look
  as if it came from a given transport address (IP address and port
@@ -15,6 +15,7 @@
 #include <stdlib.h>
 #endif
 #include <sys/types.h>
+#include <inttypes.h>
 #include <sys/param.h>
 #include <string.h>
 #if STDC_HEADERS
@@ -47,15 +48,17 @@
 #define MAX_IP_DATAGRAM_SIZE 65535
 
 static unsigned ip_header_checksum (const void * header);
+static uint16_t udp_sum_calc (uint16_t, uint32_t, uint16_t, uint32_t, uint16_t, const void *);
 
 int
-raw_send_from_to (s, msg, msglen, saddr, daddr, ttl)
+raw_send_from_to (s, msg, msglen, saddr, daddr, ttl, flags)
      int s;
      const void * msg;
      size_t msglen;
      struct sockaddr_in *saddr;
      struct sockaddr_in *daddr;
      int ttl;
+     int flags;
 {
   int length;
   int sockerr;
@@ -77,10 +80,14 @@ raw_send_from_to (s, msg, msglen, saddr, daddr, ttl)
   uh.uh_sport = saddr->sin_port;
   uh.uh_dport = daddr->sin_port;
   uh.uh_ulen = htons (msglen + sizeof uh);
-  /* It would be nice if we'd actually compute the UDP checksum,
-     because that's the only protection against transmission errors of
-     the copied packets. */
-  uh.uh_sum = 0;
+  uh.uh_sum = flags & RAWSEND_COMPUTE_UDP_CHECKSUM
+    ? udp_sum_calc (msglen,
+		    ntohl(saddr->sin_addr.s_addr),
+		    ntohs(saddr->sin_port),
+		    ntohl(daddr->sin_addr.s_addr),
+		    ntohs(daddr->sin_port),
+		    msg)
+    : 0;
 
   length = msglen + sizeof uh + sizeof ih;
 #ifndef HAVE_SYS_UIO_H
@@ -235,3 +242,83 @@ ip_header_checksum (const void * header)
     }
   return ~csum & 0xffff;
 }
+
+uint16_t udp_sum_calc( uint16_t len_udp,
+		  uint32_t src_addr,
+		  uint16_t src_port,
+		  uint32_t dest_addr,
+		  uint16_t dest_port,
+		  const void * buff
+		)
+{
+	uint16_t prot_udp        = 17;
+	uint16_t chksum_init     = 0;
+	uint16_t udp_len_total   = 0;
+	uint32_t sum             = 0;
+	uint16_t pad             = 0;
+	uint16_t low;
+	uint16_t high;
+	int i;
+
+	/* if we have an odd number of bytes in the data payload, then set the pad to 1
+	 * for special processing
+	 */
+	if( len_udp%2 != 0 ) {
+	  pad = 1;
+	}
+	/* do the source and destination addresses, first, we have to split them
+	 * into 2 shorts instead of the 32 long as sent.  Sorry, that's just how they
+	 * calculate
+	 */
+	low  = src_addr;
+	high = ( src_addr>>16 );
+	sum  += ( ( uint32_t ) high + ( uint32_t ) low );
+
+	/* now do the same with the destination address */
+	low  = dest_addr;
+	high = ( dest_addr>>16 );
+	sum  += ( ( uint32_t ) high + ( uint32_t ) low );
+
+	/* the protocol and the number and the length of the UDP packet */
+	udp_len_total = len_udp + 8;  /* length sent is length of data, need to add 8 */
+	sum += ( ( uint32_t )prot_udp + ( uint32_t )udp_len_total );
+
+
+	/* next comes the source and destination ports */
+	sum += ( ( uint32_t )src_port + ( uint32_t ) dest_port );
+
+	/* Now add the UDP length and checksum=0 bits 
+	 * The Length will always be 8 bytes plus the length of the udp data sent
+	 * and the checksum will always be zero
+	 */
+	sum += ( ( uint32_t ) udp_len_total + ( uint32_t ) chksum_init );
+        
+
+	/* Add all 16 bit words to the sum, if pad is set (ie, odd data length) this will just read up
+	 * to the last full 16 bit word.
+	 * */
+        for( i=0; i< ( len_udp - pad ); i+=2 ) {
+          high  = ntohs(*(uint16_t *)buff);
+	  buff +=2;
+	  sum  += ( uint32_t ) high;
+	}
+
+	/* ok, if pad is true, then the pointer is now  right before the last single byte in 
+	 * the payload.  We only need to add till the end of the string (1-byte) , not the next 2 bytes
+	 * as above.
+	 */
+	if( pad ) {
+	  sum += ntohs( * ( unsigned char * ) buff );
+	}
+
+	/* keep only the last 16 bits of the 32 bit calculated sum and add the carry overs */
+	while ( sum>>16 ) {
+          sum = ( sum & 0xFFFF ) + ( sum >> 16 );
+	}
+
+	/* one's compliment the sum */
+        sum = ~sum;
+
+	/* finally, return the 16bit network formated checksum */
+        return ((uint16_t) htons(sum) );
+};
