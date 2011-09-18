@@ -92,7 +92,10 @@ main (argc, argv)
 
   while (1)
     {
-      fgets (buf, buflen, stdin);
+      if (fgets (buf, buflen, stdin) == EOF)
+	{
+	  break;
+	}
       if (buf[strlen (buf)-1] == 10)
 	buf[strlen (buf)-1] = 0;
       if (inet_aton (buf, &addr.sin_addr) == 0)
