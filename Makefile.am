@@ -3,7 +3,7 @@
 PACKAGE = samplicator
 
 bin_PROGRAMS = samplicate
-samplicate_SOURCES = samplicate.c rawsend.c rawsend.h
+samplicate_SOURCES = samplicate.c samplicator.h rawsend.c rawsend.h read_config.c read_config.h
 samplicate_LDADD = @LIBOBJS@
 
 EXTRA_PROGRAMS = rawtest
