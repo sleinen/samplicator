@@ -12,7 +12,7 @@
 extern int make_raw_udp_socket (long);
 extern int raw_send_from_to (int,
 			     const void *, size_t,
-			     struct sockaddr_in *,
-			     struct sockaddr_in *,
+			     struct sockaddr *,
+			     struct sockaddr *,
 			     int,
 			     int);
