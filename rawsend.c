@@ -51,18 +51,20 @@ static unsigned ip_header_checksum (const void * header);
 static uint16_t udp_sum_calc (uint16_t, uint32_t, uint16_t, uint32_t, uint16_t, const void *);
 
 int
-raw_send_from_to (s, msg, msglen, saddr, daddr, ttl, flags)
+raw_send_from_to (s, msg, msglen, saddr_generic, daddr_generic, ttl, flags)
      int s;
      const void * msg;
      size_t msglen;
-     struct sockaddr_in *saddr;
-     struct sockaddr_in *daddr;
+     struct sockaddr *saddr_generic;
+     struct sockaddr *daddr_generic;
      int ttl;
      int flags;
+#define saddr ((struct sockaddr_in *) saddr_generic)
+#define daddr ((struct sockaddr_in *) daddr_generic)
 {
   int length;
   int sockerr;
-  int sockerr_size = sizeof sockerr;
+  socklen_t sockerr_size = sizeof sockerr;
   struct sockaddr_in dest_a;
   struct ip ih;
   struct udphdr uh;
@@ -178,6 +180,8 @@ raw_send_from_to (s, msg, msglen, saddr, daddr, ttl, flags)
     }
   return 0;
 }
+#undef saddr
+#undef daddr
 
 extern int
 make_raw_udp_socket (sockbuflen)
@@ -234,7 +238,7 @@ ip_header_checksum (const void * header)
      byte order because of the way the checksum is defined. */
   for (k = 0; k < size; ++k)
     {
-      csum += *h++ + *h++;
+      csum += *h++, csum += *h++;
     }
   while (csum > 0xffff)
     {
