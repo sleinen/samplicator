@@ -40,8 +40,8 @@ extern int inet_aton (const char *, struct in_addr *);
 
 #define PDU_SIZE 1500
 
-static int send_pdu_to_peer (struct peer *, const void *, size_t,
-			     struct sockaddr_in *);
+static int send_pdu_to_receiver (struct receiver *, const void *, size_t,
+				 struct sockaddr_in *);
 static int init_samplicator (struct samplicator_context *);
 static int samplicate (struct samplicator_context *);
 
@@ -72,7 +72,7 @@ int main(argc, argv)
 
   cmd_line.source.s_addr = 0;
   cmd_line.mask.s_addr = 0;
-  cmd_line.npeers = 0;
+  cmd_line.nreceivers = 0;
   ctx.sources = &cmd_line;
 
   cmd_line.next = (struct source_context *) NULL;
@@ -132,7 +132,7 @@ samplicate (ctx)
 
   /* check is there actually at least one configured data receiver */
   for (i = 0, sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
-    if(sctx->npeers > 0)  i += sctx->npeers; 
+    if(sctx->nreceivers > 0)  i += sctx->nreceivers; 
   if (i == 0)
     {
       fprintf(stderr, "You have to specify at least one receiver, exiting\n");
@@ -195,29 +195,29 @@ samplicate (ctx)
 	  if ((sctx->source.s_addr == 0)
 	      || ((remote_address.sin_addr.s_addr & sctx->mask.s_addr)
 		  == sctx->source.s_addr))
-	    for (i = 0; i < sctx->npeers; ++i)
+	    for (i = 0; i < sctx->nreceivers; ++i)
 	      {
-		if (sctx->peers[i].freqcount == 0)
+		if (sctx->receivers[i].freqcount == 0)
 		  {
-		    if (send_pdu_to_peer (& (sctx->peers[i]), fpdu, n, &remote_address)
+		    if (send_pdu_to_receiver (& (sctx->receivers[i]), fpdu, n, &remote_address)
 			== -1)
 		      {
 			fprintf (stderr, "sending datagram to %s:%d failed: %s\n",
-				 inet_ntoa (sctx->peers[i].addr.sin_addr),
-				 (int) ntohs (sctx->peers[i].addr.sin_port),
+				 inet_ntoa (sctx->receivers[i].addr.sin_addr),
+				 (int) ntohs (sctx->receivers[i].addr.sin_port),
 				 strerror (errno));
 		      }
 		    else if (ctx->debug)
 		      {
 			fprintf (stderr, "  sent to %s:%d\n",
-				 inet_ntoa (sctx->peers[i].addr.sin_addr),
-				 (int) ntohs (sctx->peers[i].addr.sin_port)); 
+				 inet_ntoa (sctx->receivers[i].addr.sin_addr),
+				 (int) ntohs (sctx->receivers[i].addr.sin_port)); 
 		      }
-		    sctx->peers[i].freqcount = sctx->peers[i].freq-1;
+		    sctx->receivers[i].freqcount = sctx->receivers[i].freq-1;
 		  }
 		else
 		  {
-		    --sctx->peers[i].freqcount;
+		    --sctx->receivers[i].freqcount;
 		  }
 		if (sctx->tx_delay)
 		  usleep (sctx->tx_delay);
@@ -235,25 +235,25 @@ samplicate (ctx)
 }
 
 static int
-send_pdu_to_peer (peer, fpdu, length, source_addr)
-     struct peer * peer;
+send_pdu_to_receiver (receiver, fpdu, length, source_addr)
+     struct receiver * receiver;
      const void * fpdu;
      size_t length;
      struct sockaddr_in * source_addr;
 {
-  if (peer->flags & pf_SPOOF)
+  if (receiver->flags & pf_SPOOF)
     {
       int rawsend_flags
-	= ((peer->flags & pf_CHECKSUM) ? RAWSEND_COMPUTE_UDP_CHECKSUM : 0);
-      return raw_send_from_to (peer->fd, fpdu, length,
+	= ((receiver->flags & pf_CHECKSUM) ? RAWSEND_COMPUTE_UDP_CHECKSUM : 0);
+      return raw_send_from_to (receiver->fd, fpdu, length,
 			       (struct sockaddr *) source_addr,
-			       (struct sockaddr *) &peer->addr,
-			       peer->ttl, rawsend_flags);
+			       (struct sockaddr *) &receiver->addr,
+			       receiver->ttl, rawsend_flags);
     }
   else
     {
-      return sendto (peer->fd, (char*) fpdu, length, 0,
-		     (struct sockaddr*) &peer->addr,
+      return sendto (receiver->fd, (char*) fpdu, length, 0,
+		     (struct sockaddr*) &receiver->addr,
 		     sizeof (struct sockaddr_in));
     }
 }

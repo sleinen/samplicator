@@ -140,7 +140,7 @@ read_cf_file (file, ctx)
 	    }
 	  if (argc > 0) 
 	    {
-	      if (parse_peers (argc, argv, ctx, sctx) == -1)
+	      if (parse_receivers (argc, argv, ctx, sctx) == -1)
 		{
 		  usage (argv[0]);
 		  exit (1);
@@ -170,7 +170,7 @@ parse_args (argc, argv, ctx, sctx)
   ctx->fork = 0;
   ctx->sources = NULL;
   ctx->defaultflags = pf_CHECKSUM;
-  /* assume that command-line supplied peers want to get all data */
+  /* assume that command-line supplied receivers want to get all data */
   sctx->source.s_addr = 0;
   sctx->mask.s_addr = 0;
 
@@ -235,7 +235,7 @@ should be between 0 and 65535\n",
 
   if (argc - optind > 0)
     {
-      if (parse_peers (argc - optind, argv + optind, ctx, sctx) == -1)
+      if (parse_receivers (argc - optind, argv + optind, ctx, sctx) == -1)
 	{
 	  usage (argv[0]);
 	  exit (1);
@@ -245,7 +245,7 @@ should be between 0 and 65535\n",
 }
 
 int
-parse_peers (argc, argv, ctx, sctx)
+parse_receivers (argc, argv, ctx, sctx)
      int argc;
      const char **argv;
      struct samplicator_context *ctx;
@@ -258,21 +258,21 @@ parse_peers (argc, argv, ctx, sctx)
   char *c;
   struct source_context *ptr;
 
-  /* allocate for argc peer entries */
-  sctx->npeers = argc;
+  /* allocate for argc receiver entries */
+  sctx->nreceivers = argc;
 
-  if (!(sctx->peers = (struct peer*) malloc (sctx->npeers * sizeof (struct peer)))) {
+  if (!(sctx->receivers = (struct receiver*) malloc (sctx->nreceivers * sizeof (struct receiver)))) {
     fprintf(stderr, "malloc(): failed.\n");
     return -1;
   }
 
   /* zero out malloc'd memory */
-  bzero(sctx->peers, sctx->npeers*sizeof (struct peer));
+  bzero(sctx->receivers, sctx->nreceivers*sizeof (struct receiver));
 
-  /* fill in peer entries */
+  /* fill in receiver entries */
   for (i = 0; i < argc; ++i)
     {
-      sctx->peers[i].flags = ctx->defaultflags;
+      sctx->receivers[i].flags = ctx->defaultflags;
 	
       if (strlen (argv[i]) > 255)
 	{
@@ -297,24 +297,24 @@ parse_peers (argc, argv, ctx, sctx)
 should be between 0 and 65535\n", port);
 	      return -1;
 	    }
-	  sctx->peers[i].addr.sin_port = htons (port);
+	  sctx->receivers[i].addr.sin_port = htons (port);
 	}
       else 
-	sctx->peers[i].addr.sin_port = htons (FLOWPORT);
+	sctx->receivers[i].addr.sin_port = htons (FLOWPORT);
 
       /* extract the frequency part */
-      sctx->peers[i].freqcount = 0;
-      sctx->peers[i].freq = 1;
+      sctx->receivers[i].freqcount = 0;
+      sctx->receivers[i].freq = 1;
       for (; (*c != FREQ_SEPARATOR) && (*c); ++c)
 	if (*c == TTL_SEPARATOR) goto TTL;
       if (*c == FREQ_SEPARATOR)
 	{
 	  *c = 0;
 	  ++c;
-	  sctx->peers[i].freq = atoi(c);
+	  sctx->receivers[i].freq = atoi(c);
 	}
 
-      /* printf("Frequency: %d\n", sctx->peers[i].freq); */
+      /* printf("Frequency: %d\n", sctx->receivers[i].freq); */
 
       /* extract the TTL part */
       for (; (*c != TTL_SEPARATOR) && (*c); ++c); 
@@ -323,29 +323,29 @@ should be between 0 and 65535\n", port);
         {
           *c = 0;
           ++c;
-          sctx->peers[i].ttl = atoi (c);
-	  if (sctx->peers[i].ttl < 1
-	      || sctx->peers[i].ttl > 255)
+          sctx->receivers[i].ttl = atoi (c);
+	  if (sctx->receivers[i].ttl < 1
+	      || sctx->receivers[i].ttl > 255)
 	    {
 	      fprintf (stderr,
 		       "Illegal value %d for TTL - should be between 1 and 255.\n",
-		       sctx->peers[i].ttl);
+		       sctx->receivers[i].ttl);
 	      return -1;
 	    }
         }
       else
-        sctx->peers[i].ttl = DEFAULT_TTL; 
+        sctx->receivers[i].ttl = DEFAULT_TTL; 
 
       /* extract the ip address part */
-      if (inet_aton (tmp_buf, & sctx->peers[i].addr.sin_addr) == 0)
+      if (inet_aton (tmp_buf, & sctx->receivers[i].addr.sin_addr) == 0)
 	{
 	  fprintf (stderr, "parsing IP address (%s) failed\n", tmp_buf);
 	  return -1;
 	}
 
-      sctx->peers[i].addr.sin_family = AF_INET;
+      sctx->receivers[i].addr.sin_family = AF_INET;
 
-      if (sctx->peers[i].flags & pf_SPOOF)
+      if (sctx->receivers[i].flags & pf_SPOOF)
 	{
 	  if (raw_sock == -1)
 	    {
@@ -362,7 +362,7 @@ should be between 0 and 65535\n", port);
 		  return -1;
 		}
 	    }
-	  sctx->peers[i].fd = raw_sock;
+	  sctx->receivers[i].fd = raw_sock;
 	}
       else
 	{
@@ -375,7 +375,7 @@ should be between 0 and 65535\n", port);
 		  return -1;
 		}
 	    }
-	  sctx->peers[i].fd = cooked_sock;
+	  sctx->receivers[i].fd = cooked_sock;
 	}
     }
   if (ctx->sources == NULL)
