@@ -63,7 +63,8 @@ my_inet_ntoa (const struct in_addr *in)
   return buffer;
 }
 
-int main(argc, argv)
+int
+main (argc, argv)
      int argc;
      const char **argv;
 {
@@ -78,6 +79,33 @@ int main(argc, argv)
   if (samplicate (&ctx) != 0) /* actually, samplicate() should never return. */
     exit (1);
   exit (0);
+}
+
+static int
+write_pid_file (const char *filename)
+{
+  FILE *fp;
+
+  unlink (filename);	/* Ignore results - the old file may not exist. */
+  if ((fp = fopen (filename, "w")) == 0)
+    {
+      fprintf (stderr, "Failed to create PID file %s: %s\n",
+	       filename, strerror (errno));
+      return -1;
+    }
+  if (fprintf (fp, "%ld\n", (long) getpid ()) <= 0)
+    {
+      fprintf (stderr, "Failed to write PID to PID file %s: %s\n",
+	       filename, strerror (errno));
+      return -1;
+    }
+  if (fclose (fp) == EOF)
+    {
+      fprintf (stderr, "Error closing PID file %s: %s\n",
+	       filename, strerror (errno));
+      return -1;
+    }
+  return 0;
 }
 
 /* init_samplicator: prepares receiving socket */
@@ -151,6 +179,13 @@ samplicate (ctx)
           fclose(stdout);
           fclose(stderr);
         }
+    }
+  if (ctx->pid_file != 0)
+    {
+      if (write_pid_file (ctx->pid_file) != 0)
+	{
+	  return -1;
+	}
     }
 
   while (1)

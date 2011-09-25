@@ -184,6 +184,7 @@ parse_args (argc, argv, ctx)
   ctx->fport = FLOWPORT;
   ctx->debug = 0;
   ctx->fork = 0;
+  ctx->pid_file = (const char *) 0;
   ctx->sources = 0;
   ctx->defaultflags = pf_CHECKSUM;
   /* assume that command-line supplied receivers want to get all data */
@@ -195,7 +196,7 @@ parse_args (argc, argv, ctx)
   sctx->tx_delay = 0;
 
   optind = 1;
-  while ((i = getopt (argc, (char **) argv, "hb:d:p:s:x:c:fSn")) != -1)
+  while ((i = getopt (argc, (char **) argv, "hb:d:m:p:s:x:c:fSn")) != -1)
     {
       switch (i)
 	{
@@ -220,6 +221,9 @@ should be between 0 and 65535\n",
 	      usage (argv[0]);
 	      exit (1);
 	    }
+	  break;
+	case 'm': /* make PID file */
+	  ctx->pid_file = optarg;
 	  break;
 	case 's': /* flow address */
 	  if (inet_aton (optarg, &ctx->faddr) == 0)

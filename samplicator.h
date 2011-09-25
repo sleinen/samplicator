@@ -21,6 +21,7 @@ struct samplicator_context {
   long				sockbuflen;
   int				debug;
   int				fork;
+  const char		       *pid_file;
   enum receiver_flags		defaultflags;
 
   int				fsockfd;
