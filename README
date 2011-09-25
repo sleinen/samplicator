@@ -9,7 +9,7 @@ which will then only receive one in N of the received packets.
 			     DOWNLOADING
 
 This package is distributed under
-	http://www.switch.ch/tf-tant/floma/sw/samplicator/
+	http://code.google.com/p/samplicator/
 
 			     INSTALLATION
 
@@ -42,12 +42,14 @@ Where each <option> can be one of
 	-h		to print a usage message and exit
 
 and each <destination> should be specified as
-<addr>[/<port>[/<interval>]], where
+<addr>[/<port>[/<interval>[,ttl]]], where
 
 	<addr>		IP address of the receiver
 	<port>		port UDP number of the receiver (default 2000)
 	<freq>		number of received datagrams between successive
 			copied datagrams for this receiver.
+	<ttl>		The TTL (IPv4) or hop-limit (IPv6) for
+			outgoing datagrams.
 
 Config file format:
 
