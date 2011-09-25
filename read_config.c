@@ -455,8 +455,9 @@ Supported options:\n\
   -n			   don't compute UDP checksum (leave at 0)\n\
   -S                       maintain (spoof) source addresses\n\
   -x <delay>               transmit delay in microseconds\n\
-  -c configfile            specify a config file to read\n\
+  -c <configfile>          specify a config file to read\n\
   -f                       fork program into background\n\
+  -m <pidfile>             write process ID to file\n\
   -h                       print this usage message and exit\n\
 \n\
 Specifying receivers:\n\
@@ -466,7 +467,7 @@ where:\n\
   A.B.C.D                  is the receiver's IP address\n\
   port                     is the UDP port to send to (default %d)\n\
   freq                     is the sampling rate (default 1)\n\
-  ttl                      is the sending packets TTL value (default %d)\n\
+  ttl                      is the outgoing packets' TTL value (default %d)\n\
 \n\
 Config file format:\n\
 \n\
