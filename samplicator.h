@@ -15,16 +15,26 @@ enum receiver_flags
 };
 
 struct samplicator_context {
-  struct source_context	       *sources;
-  struct in_addr		faddr;
-  int				fport;
+  struct source_context        *sources;
+  const char		       *faddr_spec;
+  struct sockaddr_storage	faddr;
+  const char		       *fport_spec;
   long				sockbuflen;
   int				debug;
   int				fork;
+  int				ipv4_only;
+  int				ipv6_only;
   const char		       *pid_file;
-  enum receiver_flags		defaultflags;
+  enum receiver_flags		default_receiver_flags;
 
   int				fsockfd;
+  socklen_t			fsockaddrlen;
+
+  const char		       *config_file_name;
+  int				config_file_lineno;
+
+  /* statistics */
+  uint32_t			unmatched_packets;
 };
 
 struct receiver {
@@ -36,17 +46,26 @@ struct receiver {
   int				freqcount;
   int				ttl;
   enum receiver_flags		flags;
+
+  /* statistics */
+  uint32_t			out_packets;
+  uint32_t			out_errors;
+  uint64_t			out_octets;
 };
 
 struct source_context {
   struct source_context	       *next;
   struct sockaddr_storage	source;
   struct sockaddr_storage	mask;
+  socklen_t			addrlen;
   struct receiver	       *receivers;
   unsigned			nreceivers;
   unsigned			tx_delay;
-  int			
-	debug;
+  int				debug;
+
+  /* statistics */
+  uint32_t			matched_packets;
+  uint64_t			matched_octets;
 };
 
 #endif /* not _SAMPLICATOR_H_ */

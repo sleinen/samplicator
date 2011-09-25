@@ -58,9 +58,6 @@
 #ifdef HAVE_CTYPE_H
 # include <ctype.h>
 #endif
-#ifndef HAVE_INET_ATON
-extern int inet_aton (const char *, struct in_addr *);
-#endif
 
 #include "samplicator.h"
 #include "read_config.h"
@@ -90,7 +87,7 @@ check_receiver (receiver, addr, port, af, freq, ttl)
   else if (af == AF_INET6)
     check_int_equal (receiver->addrlen, sizeof (struct sockaddr_in6));
   else
-    return test_fail ();
+    test_fail ();
   check_address_equal ((struct sockaddr *) &receiver->addr, addr, port, af);
   check_int_equal (receiver->freq, freq);
   check_int_equal (receiver->ttl, ttl);
@@ -121,17 +118,15 @@ main (int argc, char **argv)
   check_int_equal (ctx.fork, 0);
   check_null (ctx.sources);
 
-#ifdef NOTYET
   check_int_equal (parse_cf_string ("1.2.3.4/30+ 6.7.8.9/1234\n", &ctx), -1);
-#endif
 
-  check_int_equal (parse_cf_string ("1.2.3.4/255.255.255.252: 6.7.8.9/1234\n2.3.4.5: 7.8.9.0/4321", &ctx), 0);
+  check_int_equal (parse_cf_string ("1.2.3.4/255.255.255.252: 6.7.8.9/1234/10,237\n2.3.4.5: 7.8.9.0/4321", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   if (check_non_null (sctx = ctx.sources))
     {
       check_source_address_mask (sctx, "1.2.3.4", "255.255.255.252", AF_INET);
       check_int_equal (sctx->nreceivers, 1);
-      check_receiver (&sctx->receivers[0], "6.7.8.9", 1234, AF_INET, 1, DEFAULT_TTL);
+      check_receiver (&sctx->receivers[0], "6.7.8.9", 1234, AF_INET, 10, 237);
       if (check_non_null (sctx = sctx->next))
 	{
 	  check_source_address_mask (sctx, "2.3.4.5", "255.255.255.255", AF_INET);
@@ -141,7 +136,6 @@ main (int argc, char **argv)
 	}
     }
 
-#ifdef NOTYET
   check_int_equal (parse_cf_string ("1.2.3.4/30: 6.7.8.9/1234\n2.3.4.5: 7.8.9.0/4321", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   if (check_non_null (sctx = ctx.sources))
@@ -158,6 +152,7 @@ main (int argc, char **argv)
 	}
     }
 
+#ifdef NOTYET
   check_int_equal (parse_cf_string ("1.2.3.4/30: localhost/1234", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   if (check_non_null (sctx = ctx.sources))
@@ -166,6 +161,7 @@ main (int argc, char **argv)
       check_int_equal (sctx->nreceivers, 1);
       check_receiver (&sctx->receivers[0], "127.0.0.1", 1234, AF_INET, 1, DEFAULT_TTL);
     }
+#endif
 
   check_int_equal (parse_cf_string ("1.2.3.4/30: ip6-localhost/1234", &ctx), 0);
   check_int_equal (ctx.fork, 0);
@@ -209,6 +205,7 @@ main (int argc, char **argv)
       check_receiver (&sctx->receivers[0], "2001:db8:0::1", 2000, AF_INET6, 1, DEFAULT_TTL);
       check_null (sctx->next);
     }
+#ifdef NOTYET
 #endif
   return 0;
 }

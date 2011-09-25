@@ -184,10 +184,16 @@ raw_send_from_to (s, msg, msglen, saddr_generic, daddr_generic, ttl, flags)
 #undef daddr
 
 extern int
-make_raw_udp_socket (sockbuflen)
-     long sockbuflen;
+make_raw_udp_socket (sockbuflen, af)
+     size_t sockbuflen;
+     int af;
 {
   int s;
+  if (af == AF_INET6)
+    {
+      fprintf (stderr, "Spoofing not supported for IPv6\n");
+      return -1;
+    }
   if ((s = socket (PF_INET, SOCK_RAW, IPPROTO_RAW)) == -1)
     return s;
   if (sockbuflen != -1)

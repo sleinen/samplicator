@@ -9,7 +9,7 @@
 
 #define RAWSEND_COMPUTE_UDP_CHECKSUM	0x0001
 
-extern int make_raw_udp_socket (long);
+extern int make_raw_udp_socket (size_t, int);
 extern int raw_send_from_to (int,
 			     const void *, size_t,
 			     struct sockaddr *,

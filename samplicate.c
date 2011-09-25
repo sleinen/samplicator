@@ -9,6 +9,7 @@
 #endif
 #include <sys/socket.h>
 #include <netinet/in.h>
+#include <netdb.h>
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>
 #endif
@@ -30,38 +31,21 @@
 #ifdef HAVE_CTYPE_H
 # include <ctype.h>
 #endif
-#ifndef HAVE_INET_ATON
-extern int inet_aton (const char *, struct in_addr *);
-#endif
 
 #include "samplicator.h"
 #include "read_config.h"
 #include "rawsend.h"
+#include "inet.h"
 
 #define PDU_SIZE 1500
 
 static int send_pdu_to_receiver (struct receiver *, const void *, size_t,
-				 struct sockaddr_in *);
+				 struct sockaddr *);
 static int init_samplicator (struct samplicator_context *);
 static int samplicate (struct samplicator_context *);
-
-/* Work around a GCC compatibility problem with respect to the
-   inet_ntoa() system function */
-#undef inet_ntoa
-#define inet_ntoa(x) my_inet_ntoa(&(x))
-
-static const char *
-my_inet_ntoa (const struct in_addr *in)
-{
-  unsigned a = ntohl (in->s_addr);
-  static char buffer[16];
-  sprintf (buffer, "%d.%d.%d.%d",
-	   (a >> 24) & 0xff,
-	   (a >> 16) & 0xff,
-	   (a >> 8) & 0xff,
-	   a & 0xff);
-  return buffer;
-}
+static int make_udp_socket (long, int, int);
+static int make_recv_socket (struct samplicator_context *);
+static int make_send_sockets (struct samplicator_context *);
 
 int
 main (argc, argv)
@@ -70,15 +54,39 @@ main (argc, argv)
 {
   struct samplicator_context ctx;
 
-  if (parse_args (argc, argv, &ctx) == -1)
+  if (parse_args (argc, (const char **) argv, &ctx) == -1)
     {
-      exit (-1);
+      exit (1);
     }
   if (init_samplicator (&ctx) == -1)
     exit (1);
   if (samplicate (&ctx) != 0) /* actually, samplicate() should never return. */
     exit (1);
   exit (0);
+}
+
+static int
+daemonize (void)
+{
+  pid_t pid;
+
+  pid = fork();
+  if (pid == -1)
+    {
+      fprintf (stderr, "failed to fork process\n");
+      exit (1);
+    }
+  else if (pid > 0)
+    { /* kill the parent */
+      exit (0);
+    }
+  else
+    { /* end interaction with shell */
+      fclose (stdin);
+      fclose (stdout);
+      fclose (stderr);
+    }
+  return 0;
 }
 
 static int
@@ -108,78 +116,124 @@ write_pid_file (const char *filename)
   return 0;
 }
 
+/*
+ make_recv_socket(ctx)
+
+ Create the socket on which samplicator receives its packets.
+
+ There can only be one.  This will be either a wildcard socket
+ listening on a specific port on all interfaces, or a socket bound to
+ a specific address (and, thus, interface).
+
+ The creation of this socket is affected by the preferences in CTX:
+
+ CTX->faddr_spec
+   This is either a null pointer, meaning that a wildcard socket
+   should be created, or a hostname or address literal specifying
+   which address to listen on.  If this maps to multiple addresses,
+   the socket will be bound to the first of those addresses that it
+   can be bound to, in the order returned by getaddrinfo().
+
+ CTX->fport_spec
+   This must be a string, and specifies the port number or service
+   name on which the socket will listen.
+
+ CTX->ipv4_only
+   If this is non-zero, the socket will be an IPv4 socket.  An error
+   will be signaled if faddr_spec doesn't map to an IPv4 address.
+
+ CTX->ipv6_only
+   If non zero, only IPv6 addresses will be considered.
+
+ If ipv4_only and ipv6_only are both zero, and faddr_spec is also
+ null, then the receive socket will be an IPv6 socket bound to a
+ specific port on all interfaces.  This socket will be able to receive
+ packets over both IPv6 and IPv4.
+
+ CTX->sockbuflen
+   If this is non-zero, the function will try to set the socket's
+   receiver buffer size to this many bytes.  If setting the socket
+   buffer fails, a warning will be printed, but the socket will still
+   be created.  The idea here is that a socket with an incorrect
+   buffer size is more useful than no socket at all, although some
+   people may differ.
+
+ RETURN VALUE
+
+ If a socket could be created and bound, this function will return
+ zero.  If this was not possible, the function will produce an error
+ message and return -1.
+ */
+static int
+make_recv_socket (ctx)
+     struct samplicator_context *ctx;
+{
+  struct addrinfo hints, *res;
+  int result;
+
+  init_hints_from_preferences (&hints, ctx);
+  if ((result = getaddrinfo (ctx->faddr_spec, ctx->fport_spec, &hints, &res)) != 0)
+    {
+      fprintf (stderr, "Failed to resolve IP address/port (%s:%s): %s\n",
+	       ctx->faddr_spec, ctx->fport_spec, gai_strerror (result));
+      return -1;
+    }
+  for (; res; res = res->ai_next)
+    {
+      if ((ctx->fsockfd = socket (res->ai_family, SOCK_DGRAM, 0)) < 0)
+	{
+	  fprintf (stderr, "socket(): %s\n", strerror (errno));
+	  break;
+	}
+      if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_RCVBUF,
+		      (char *) &ctx->sockbuflen, sizeof ctx->sockbuflen) == -1)
+	{
+	  fprintf (stderr, "Warning: setsockopt(SO_RCVBUF,%ld) failed: %s\n",
+		   ctx->sockbuflen, strerror (errno));
+	}
+      if (bind (ctx->fsockfd,
+		(struct sockaddr*)res->ai_addr, res->ai_addrlen) < 0)
+	{
+	  fprintf (stderr, "bind(): %s\n", strerror (errno));
+	  break;
+	}
+      ctx->fsockaddrlen = res->ai_addrlen;
+      return 0;
+    }
+  return -1;
+}
+
 /* init_samplicator: prepares receiving socket */
 static int
 init_samplicator (ctx)
      struct samplicator_context *ctx;
 {
-  struct sockaddr_in local_address;
-
-  /* setup to receive flows */
-  bzero (&local_address, sizeof local_address);
-  local_address.sin_family = AF_INET;
-  local_address.sin_addr.s_addr = ctx->faddr.s_addr;
-  local_address.sin_port = htons (ctx->fport);
-
-  if ((ctx->fsockfd = socket (AF_INET, SOCK_DGRAM, 0)) < 0)
-    {
-      fprintf (stderr, "socket(): %s\n", strerror (errno));
-      return -1;
-    }
-  if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_RCVBUF,
-		  (char *) &ctx->sockbuflen, sizeof ctx->sockbuflen) == -1)
-    {
-      fprintf (stderr, "setsockopt(SO_RCVBUF,%ld): %s\n",
-	       ctx->sockbuflen, strerror (errno));
-    }
-  if (bind (ctx->fsockfd,
-	    (struct sockaddr*)&local_address, sizeof local_address) < 0)
-    {
-      fprintf (stderr, "bind(): %s\n", strerror (errno));
-      return -1;
-    }
-  return 0;
-}
-
-static int
-samplicate (ctx)
-     struct samplicator_context *ctx;
-{
-  unsigned char fpdu[PDU_SIZE];
-  struct sockaddr_in remote_address;
   struct source_context *sctx;
-  pid_t pid;
-  int i, n;
-  socklen_t len;
+  int i;
+
+  if (make_recv_socket (ctx) != 0)
+    {
+      return -1;
+    }
 
   /* check is there actually at least one configured data receiver */
   for (i = 0, sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
-    if(sctx->nreceivers > 0)  i += sctx->nreceivers; 
+    {
+      i += sctx->nreceivers; 
+    }
   if (i == 0)
     {
       fprintf(stderr, "You have to specify at least one receiver, exiting\n");
-      exit(1);
+      return -1;
+    }
+
+  if (make_send_sockets (ctx) != 0)
+    {
+      return -1;
     }
 
   if (ctx->fork == 1)
-    {
-      pid = fork();
-      if (pid == -1)
-        {
-          fprintf (stderr, "failed to fork process\n");
-          exit (1);
-        }
-      else if (pid > 0)
-        { /* kill the parent */
-          exit (0);
-        }
-      else
-        { /* end interaction with shell */
-          fclose(stdin);
-          fclose(stdout);
-          fclose(stderr);
-        }
-    }
+    daemonize ();
   if (ctx->pid_file != 0)
     {
       if (write_pid_file (ctx->pid_file) != 0)
@@ -187,15 +241,100 @@ samplicate (ctx)
 	  return -1;
 	}
     }
+  return 0;
+}
+
+static int
+match_addr_p (struct sockaddr *input_generic,
+	      struct sockaddr *addr_generic,
+	      struct sockaddr *mask_generic)
+{
+#define SPECIALIZE(VAR, STRUCT) \
+  struct STRUCT *VAR = (struct STRUCT *) VAR ## _generic
+
+  if (addr_generic->sa_family == AF_INET)
+    {
+      SPECIALIZE (addr, sockaddr_in);
+      SPECIALIZE (mask, sockaddr_in);
+      if (addr->sin_addr.s_addr == 0)
+	return 1;
+      if (input_generic->sa_family == AF_INET)
+	{
+	  SPECIALIZE (input, sockaddr_in);
+	  if ((input->sin_addr.s_addr & mask->sin_addr.s_addr) == addr->sin_addr.s_addr)
+	    return 1;
+	  return 0;
+	}
+      else if (input_generic->sa_family == AF_INET6)
+	{
+	  SPECIALIZE (input, sockaddr_in6);
+	  if (IN6_IS_ADDR_V4MAPPED (&input->sin6_addr))
+	    {
+	      abort ();		/* TODO */
+	    }
+	  else
+	    {
+	      return 0;
+	    }
+	}
+      else
+	abort ();		/* Unexpected address family */
+    }
+  else
+    {
+      SPECIALIZE (addr, sockaddr_in6);
+      SPECIALIZE (mask, sockaddr_in6);
+
+      if (IN6_IS_ADDR_UNSPECIFIED (&mask->sin6_addr))
+	{
+	  return 1;
+	}
+      else if (input_generic->sa_family == AF_INET)
+	{
+	  abort ();
+	}
+      else if (input_generic->sa_family == AF_INET6)
+	{
+	  SPECIALIZE (input, sockaddr_in6);
+	  unsigned k;
+	  for (k = 0; k < 16; ++k)
+	    {
+	      if ((input->sin6_addr.s6_addr[k] & mask->sin6_addr.s6_addr[k])
+		  != addr->sin6_addr.s6_addr[k])
+		{
+		  return 0;
+		}
+	      return 1;
+	    }
+	  abort ();
+	}
+      else
+	abort ();		/* Unexpected address family */
+    }
+#undef SPECIALIZE
+}
+
+static int
+samplicate (ctx)
+     struct samplicator_context *ctx;
+{
+  unsigned char fpdu[PDU_SIZE];
+  struct sockaddr_storage remote_address;
+  struct source_context *sctx;
+  unsigned i;
+  int n;
+  socklen_t addrlen;
+  char host[INET6_ADDRSTRLEN];
+  char serv[6];
 
   while (1)
     {
-      len = sizeof remote_address;
+      addrlen = sizeof remote_address;
       if ((n = recvfrom (ctx->fsockfd, (char*)fpdu,
 			 sizeof (fpdu), 0,
-			 (struct sockaddr*) &remote_address, &len)) == -1)
+			 (struct sockaddr *) &remote_address, &addrlen)) == -1)
 	{
-	  fprintf(stderr, "recvfrom(): %s\n", strerror(errno));
+	  fprintf (stderr, "recvfrom(): %s\n", strerror(errno));
 	  exit (1);
 	}
       if (n > PDU_SIZE)
@@ -204,59 +343,111 @@ samplicate (ctx)
 		   n-PDU_SIZE);
 	  n = PDU_SIZE;
 	}
-      if (len != sizeof remote_address)
+      if (addrlen != ctx->fsockaddrlen)
 	{
 	  fprintf (stderr, "recvfrom() return address length %lu - expected %lu\n",
-		   (unsigned long) len, (unsigned long) sizeof remote_address);
+		   (unsigned long) addrlen, (unsigned long) ctx->fsockaddrlen);
 	  exit (1);
 	}
       if (ctx->debug)
 	{
-	  fprintf (stderr, "received %d bytes from %s:%d\n",
-		   n,
-		   inet_ntoa (remote_address.sin_addr),
-		   (int) ntohs (remote_address.sin_port));
+	  if (getnameinfo ((struct sockaddr *) &remote_address, addrlen,
+			   host, INET6_ADDRSTRLEN,
+			   serv, 6,
+			   NI_NUMERICHOST|NI_NUMERICSERV) == -1)
+	    {
+	      strcpy (host, "???");
+	      strcpy (serv, "?????");
+	    }
+	  fprintf (stderr, "received %d bytes from %s:%s\n", n, host, serv);
 	}
 
-
-      for(sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
+      for (sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
 	{
-	  if ((((struct sockaddr_in *) &sctx->source)->sin_addr.s_addr == 0)
-	      || ((remote_address.sin_addr.s_addr & ((struct sockaddr_in *) &sctx->mask)->sin_addr.s_addr)
-		  == ((struct sockaddr_in *) &sctx->source)->sin_addr.s_addr))
-	    for (i = 0; i < sctx->nreceivers; ++i)
-	      {
-		if (sctx->receivers[i].freqcount == 0)
-		  {
-		    if (send_pdu_to_receiver (& (sctx->receivers[i]), fpdu, n, &remote_address)
-			== -1)
-		      {
-			fprintf (stderr, "sending datagram to %s:%d failed: %s\n",
-				 inet_ntoa (((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_addr),
-				 (int) ntohs (((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_port),
-				 strerror (errno));
-		      }
-		    else if (ctx->debug)
-		      {
-			fprintf (stderr, "  sent to %s:%d\n",
-				 inet_ntoa (((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_addr),
-				 (int) ntohs (((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_port)); 
-		      }
-		    sctx->receivers[i].freqcount = sctx->receivers[i].freq-1;
-		  }
-		else
-		  {
-		    --sctx->receivers[i].freqcount;
-		  }
-		if (sctx->tx_delay)
-		  usleep (sctx->tx_delay);
-	      }
+	  if (match_addr_p ((struct sockaddr *) &remote_address,
+			    (struct sockaddr *) &sctx->source,
+			    (struct sockaddr *) &sctx->mask))
+	    {
+	      sctx->matched_packets += 1;
+	      sctx->matched_octets += n;
+
+	      for (i = 0; i < sctx->nreceivers; ++i)
+		{
+		  struct receiver *receiver = &(sctx->receivers[i]);
+
+		  if (receiver->freqcount == 0)
+		    {
+		      if (send_pdu_to_receiver (receiver, fpdu, n, (struct sockaddr *) &remote_address)
+			  == -1)
+			{
+			  receiver->out_errors += 1;
+			  if (getnameinfo ((struct sockaddr *) &receiver->addr,
+					   receiver->addrlen,
+					   host, INET6_ADDRSTRLEN,
+					   serv, 6,
+					   NI_NUMERICHOST|NI_NUMERICSERV)
+			      == -1)
+			    {
+			      strcpy (host, "???");
+			      strcpy (serv, "?????");
+			    }
+			  fprintf (stderr, "sending datagram to %s:%s failed: %s\n",
+				   host, serv, strerror (errno));
+			}
+		      else
+			{
+			  receiver->out_packets += 1;
+			  receiver->out_octets += n;
+
+			  if (ctx->debug)
+			    {
+			      if (getnameinfo ((struct sockaddr *) &receiver->addr,
+					       receiver->addrlen,
+					       host, INET6_ADDRSTRLEN,
+					       serv, 6,
+					       NI_NUMERICHOST|NI_NUMERICSERV)
+				  == -1)
+				{
+				  strcpy (host, "???");
+				  strcpy (serv, "?????");
+				}
+			      fprintf (stderr, "  sent to %s:%s\n", host, serv); 
+			    }
+			}
+		      receiver->freqcount = receiver->freq-1;
+		    }
+		  else
+		    {
+		      receiver->freqcount -= 1;
+		    }
+		  if (sctx->tx_delay)
+		    usleep (sctx->tx_delay);
+		}
+	    }
 	  else
 	    {
 	      if (ctx->debug)
 		{
-		  fprintf (stderr, "Not matching %s/", inet_ntoa(((struct sockaddr_in *) &sctx->source)->sin_addr));
-		  fprintf (stderr, "%s\n", inet_ntoa(((struct sockaddr_in *) &sctx->mask)->sin_addr));
+		  if (getnameinfo ((struct sockaddr *) &sctx->source,
+				   sctx->addrlen,
+				   host, INET6_ADDRSTRLEN,
+				   0, 0,
+				   NI_NUMERICHOST|NI_NUMERICSERV)
+		      == -1)
+		    {
+		      strcpy (host, "???");
+		    }
+		  fprintf (stderr, "Not matching %s/", host);
+		  if (getnameinfo ((struct sockaddr *) &sctx->mask,
+				   sctx->addrlen,
+				   host, INET6_ADDRSTRLEN,
+				   0, 0,
+				   NI_NUMERICHOST|NI_NUMERICSERV)
+		      == -1)
+		    {
+		      strcpy (host, "???");
+		    }
+		  fprintf (stderr, "%s\n", host);
 		}
 	    }
 	}
@@ -268,7 +459,7 @@ send_pdu_to_receiver (receiver, fpdu, length, source_addr)
      struct receiver * receiver;
      const void * fpdu;
      size_t length;
-     struct sockaddr_in * source_addr;
+     struct sockaddr * source_addr;
 {
   if (receiver->flags & pf_SPOOF)
     {
@@ -282,7 +473,80 @@ send_pdu_to_receiver (receiver, fpdu, length, source_addr)
   else
     {
       return sendto (receiver->fd, (char*) fpdu, length, 0,
-		     (struct sockaddr*) &receiver->addr,
-		     sizeof (struct sockaddr_in));
+		     (struct sockaddr*) &receiver->addr, receiver->addrlen);
     }
+}
+
+static int
+make_cooked_udp_socket (long sockbuflen, int af)
+{
+  int s;
+  if ((s = socket (af == AF_INET ? PF_INET : PF_INET6, SOCK_DGRAM, 0)) == -1)
+    return s;
+  if (sockbuflen != -1)
+    {
+      if (setsockopt (s, SOL_SOCKET, SO_SNDBUF,
+		      (char *) &sockbuflen, sizeof sockbuflen) == -1)
+	{
+	  fprintf (stderr, "setsockopt(SO_SNDBUF,%ld): %s\n",
+		   sockbuflen, strerror (errno));
+	}
+    }
+  return s;
+}
+
+static int
+make_udp_socket (long sockbuflen, int raw, int af)
+{
+  return raw
+    ? make_raw_udp_socket (sockbuflen, af)
+    : make_cooked_udp_socket (sockbuflen, af);
+}
+
+static int
+make_send_sockets (struct samplicator_context *ctx)
+{
+  /* Array of four sockets:
+
+     First index: cooked(0)/raw(1)
+     Second index: IPv4(0)/IPv6(1)
+
+     At a maximum, we need one socket of each kind.  These sockets can
+     be used by multiple receivers of the same type.
+   */
+  int socks[2][2] = { { -1, -1 }, { -1, -1 } };
+
+  struct source_context *sctx;
+  unsigned i;
+
+  for (sctx = ctx->sources; sctx != 0; sctx = sctx->next)
+    {
+      for (i = 0; i < sctx->nreceivers; ++i)
+	{
+	  struct receiver *receiver = &sctx->receivers[i];
+	  int af = receiver->addr.ss_family;
+	  int af_index = af == AF_INET ? 0 : 1;
+	  int spoof_p = receiver->flags & pf_SPOOF;
+
+	  if (socks[spoof_p][af_index] == -1)
+	    {
+	      if ((socks[spoof_p][af_index] = make_udp_socket (ctx->sockbuflen, spoof_p, af)) < 0)
+		{
+		  if (spoof_p && errno == EPERM)
+		    {
+		      fprintf (stderr, "Not enough privilege for -S option---try again as root.\n");
+		      return -1;
+		    }
+		  else
+		    {
+		      fprintf (stderr, "Error creating%s socket: %s\n",
+			       spoof_p ? " raw" : "", strerror (errno));
+		    }
+		  return -1;
+		}
+	    }
+	  receiver->fd = socks[spoof_p][af_index];
+	}
+    }
+  return 0;
 }

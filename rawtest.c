@@ -24,7 +24,7 @@ main (int argc, char **argv)
 {
   int s;
 
-  if ((s = make_raw_udp_socket (0)) == -1)
+  if ((s = make_raw_udp_socket (0, AF_INET)) == -1)
     {
       fprintf (stderr, "socket: %s\n",
 	       strerror (errno));
