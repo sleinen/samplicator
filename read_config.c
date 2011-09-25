@@ -50,12 +50,12 @@ static void usage (const char *);
 #define FREQ_SEPARATOR	'/'
 #define TTL_SEPARATOR	','
 
-#define FLOWPORT 2000 
+#define FLOWPORT 2000
 
 #define DEFAULT_SOCKBUFLEN 65536
 
 #define MAX_PEERS 100
-#define MAX_LINELEN 1000
+#define MAX_LINELEN 8000
 
 int
 read_cf_file (file, ctx)
@@ -74,10 +74,12 @@ read_cf_file (file, ctx)
       fprintf(stderr, "read_cf_file: cannot open %s. Aborting.\n",file);
       exit(1);
     }
-
   while (!feof(cf))
     {
-      fgets(tmp_s, MAX_LINELEN - 1, cf);
+      if (fgets (tmp_s, MAX_LINELEN - 1, cf) == (char *) 0)
+	{
+	  break;
+	}
 	
       if ((c = strchr(tmp_s, '#')) != 0)
 	continue;
@@ -96,9 +98,10 @@ read_cf_file (file, ctx)
 	  if ((slash = strchr (tmp_s, '/')) != 0)
 	    {
 	      *slash++ = 0;
-		
+
+	      ((struct sockaddr_in *) &sctx->mask)->sin_family = AF_INET;
 	      /* fprintf (stderr, "parsing IP address mask (%s)\n",slash); */
-	      if (inet_aton (slash, &(sctx->mask)) == 0)
+	      if (inet_aton (slash, &(((struct sockaddr_in *) &sctx->mask)->sin_addr)) == 0)
 		{
              	  fprintf (stderr, "parsing IP address mask (%s) failed\n",slash);
             	  exit (1);
@@ -106,10 +109,12 @@ read_cf_file (file, ctx)
 	    }
 	  else
 	    {
-	      inet_aton ("255.255.255.255", &(sctx->mask));
+	      ((struct sockaddr_in *) &sctx->mask)->sin_family = AF_INET;
+	      inet_aton ("255.255.255.255", &(((struct sockaddr_in *) &sctx->mask)->sin_addr));
 	    }
 	  /* fprintf (stderr, "parsing IP address (%s)\n",tmp_s); */
-  	  if (inet_aton (tmp_s, &(sctx->source)) == 0)
+	  ((struct sockaddr_in *) &sctx->source)->sin_family = AF_INET;
+  	  if (inet_aton (tmp_s, &((struct sockaddr_in *) &sctx->source)->sin_addr) == 0)
             {
 	      fprintf (stderr, "parsing IP address (%s) failed\n",tmp_s);
 	      exit (1);
@@ -153,29 +158,43 @@ read_cf_file (file, ctx)
 }
 
 int
-parse_args (argc, argv, ctx, sctx)
+parse_args (argc, argv, ctx)
      int argc;
      const char **argv;
      struct samplicator_context *ctx;
-     struct source_context *sctx;
 {
   extern char *optarg;
   extern int errno, optind;
   int i;
+  struct source_context *sctx = calloc (1, sizeof (struct source_context));
+
+  if (sctx == 0)
+    {
+      fprintf (stderr, "Out of memory\n");
+      return -1;
+    }
+
+  sctx->nreceivers = 0;
+  ctx->sources = sctx;
+
+  sctx->next = (struct source_context *) NULL;
 
   ctx->sockbuflen = DEFAULT_SOCKBUFLEN;
   ctx->faddr.s_addr = htonl (INADDR_ANY);
   ctx->fport = FLOWPORT;
   ctx->debug = 0;
   ctx->fork = 0;
-  ctx->sources = NULL;
+  ctx->sources = 0;
   ctx->defaultflags = pf_CHECKSUM;
   /* assume that command-line supplied receivers want to get all data */
-  sctx->source.s_addr = 0;
-  sctx->mask.s_addr = 0;
+  ((struct sockaddr_in *) &sctx->source)->sin_family = AF_INET;
+  ((struct sockaddr_in *) &sctx->source)->sin_addr.s_addr = 0;
+  ((struct sockaddr_in *) &sctx->mask)->sin_family = AF_INET;
+  ((struct sockaddr_in *) &sctx->mask)->sin_addr.s_addr = 0;
 
   sctx->tx_delay = 0;
 
+  optind = 1;
   while ((i = getopt (argc, (char **) argv, "hb:d:p:s:x:c:fSn")) != -1)
     {
       switch (i)
@@ -217,7 +236,10 @@ should be between 0 and 65535\n",
 	  ctx->defaultflags |= pf_SPOOF;
 	  break;
 	case 'c': /* config file */
-	  read_cf_file(optarg, ctx);
+	  if (read_cf_file(optarg, ctx) != 0)
+	    {
+	      return -1;
+	    }
 	  break;
 	case 'f': /* fork */
 	  ctx->fork = 1;
@@ -261,18 +283,16 @@ parse_receivers (argc, argv, ctx, sctx)
   /* allocate for argc receiver entries */
   sctx->nreceivers = argc;
 
-  if (!(sctx->receivers = (struct receiver*) malloc (sctx->nreceivers * sizeof (struct receiver)))) {
-    fprintf(stderr, "malloc(): failed.\n");
+  if (!(sctx->receivers = (struct receiver*) calloc (sctx->nreceivers, sizeof (struct receiver)))) {
+    fprintf(stderr, "calloc(): failed.\n");
     return -1;
   }
-
-  /* zero out malloc'd memory */
-  bzero(sctx->receivers, sctx->nreceivers*sizeof (struct receiver));
 
   /* fill in receiver entries */
   for (i = 0; i < argc; ++i)
     {
       sctx->receivers[i].flags = ctx->defaultflags;
+      sctx->receivers[i].addrlen = sizeof (struct sockaddr_in);
 	
       if (strlen (argv[i]) > 255)
 	{
@@ -297,10 +317,10 @@ parse_receivers (argc, argv, ctx, sctx)
 should be between 0 and 65535\n", port);
 	      return -1;
 	    }
-	  sctx->receivers[i].addr.sin_port = htons (port);
+	  ((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_port = htons (port);
 	}
       else 
-	sctx->receivers[i].addr.sin_port = htons (FLOWPORT);
+	((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_port = htons (FLOWPORT);
 
       /* extract the frequency part */
       sctx->receivers[i].freqcount = 0;
@@ -337,13 +357,14 @@ should be between 0 and 65535\n", port);
         sctx->receivers[i].ttl = DEFAULT_TTL; 
 
       /* extract the ip address part */
-      if (inet_aton (tmp_buf, & sctx->receivers[i].addr.sin_addr) == 0)
+      if (inet_aton (tmp_buf, & ((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_addr) == 0)
 	{
 	  fprintf (stderr, "parsing IP address (%s) failed\n", tmp_buf);
 	  return -1;
 	}
 
-      sctx->receivers[i].addr.sin_family = AF_INET;
+      sctx->receivers[i].addrlen = sizeof (struct sockaddr_in);
+      sctx->receivers[i].addr.ss_family = AF_INET;
 
       if (sctx->receivers[i].flags & pf_SPOOF)
 	{

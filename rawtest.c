@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "rawsend.h"
 
@@ -23,7 +24,7 @@ main (int argc, char **argv)
 {
   int s;
 
-  if ((s = make_raw_udp_socket ()) == -1)
+  if ((s = make_raw_udp_socket (0)) == -1)
     {
       fprintf (stderr, "socket: %s\n",
 	       strerror (errno));
@@ -41,12 +42,20 @@ main (int argc, char **argv)
     dest.sin_addr.s_addr = htonl (0x7f000001);
     dest.sin_port = htons (5678);
 
-    if (raw_send_from_to (s, & msg, msglen, & here, &dest) == -1)
-      {
-	fprintf (stderr, "sending failed: %s\n",
-		 strerror (errno));
-	exit (1);
-      }
+    {
+      int ttl = 64;
+      int checksum_p = RAWSEND_COMPUTE_UDP_CHECKSUM;
+
+      if (raw_send_from_to (s, & msg, msglen,
+			    (struct sockaddr *) &here,
+			    (struct sockaddr *) &dest,
+			    ttl, checksum_p) == -1)
+	{
+	  fprintf (stderr, "sending failed: %s\n",
+		   strerror (errno));
+	  exit (1);
+	}
+    }
   }
   return 0;
 }

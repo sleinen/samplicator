@@ -68,17 +68,11 @@ int main(argc, argv)
      const char **argv;
 {
   struct samplicator_context ctx;
-  struct source_context cmd_line;
 
-  cmd_line.source.s_addr = 0;
-  cmd_line.mask.s_addr = 0;
-  cmd_line.nreceivers = 0;
-  ctx.sources = &cmd_line;
-
-  cmd_line.next = (struct source_context *) NULL;
-
-  parse_args (argc, argv, &ctx, &cmd_line);
-
+  if (parse_args (argc, argv, &ctx) == -1)
+    {
+      exit (-1);
+    }
   if (init_samplicator (&ctx) == -1)
     exit (1);
   if (samplicate (&ctx) != 0) /* actually, samplicate() should never return. */
@@ -192,9 +186,9 @@ samplicate (ctx)
 
       for(sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
 	{
-	  if ((sctx->source.s_addr == 0)
-	      || ((remote_address.sin_addr.s_addr & sctx->mask.s_addr)
-		  == sctx->source.s_addr))
+	  if ((((struct sockaddr_in *) &sctx->source)->sin_addr.s_addr == 0)
+	      || ((remote_address.sin_addr.s_addr & ((struct sockaddr_in *) &sctx->mask)->sin_addr.s_addr)
+		  == ((struct sockaddr_in *) &sctx->source)->sin_addr.s_addr))
 	    for (i = 0; i < sctx->nreceivers; ++i)
 	      {
 		if (sctx->receivers[i].freqcount == 0)
@@ -203,15 +197,15 @@ samplicate (ctx)
 			== -1)
 		      {
 			fprintf (stderr, "sending datagram to %s:%d failed: %s\n",
-				 inet_ntoa (sctx->receivers[i].addr.sin_addr),
-				 (int) ntohs (sctx->receivers[i].addr.sin_port),
+				 inet_ntoa (((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_addr),
+				 (int) ntohs (((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_port),
 				 strerror (errno));
 		      }
 		    else if (ctx->debug)
 		      {
 			fprintf (stderr, "  sent to %s:%d\n",
-				 inet_ntoa (sctx->receivers[i].addr.sin_addr),
-				 (int) ntohs (sctx->receivers[i].addr.sin_port)); 
+				 inet_ntoa (((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_addr),
+				 (int) ntohs (((struct sockaddr_in *) &sctx->receivers[i].addr)->sin_port)); 
 		      }
 		    sctx->receivers[i].freqcount = sctx->receivers[i].freq-1;
 		  }
@@ -226,8 +220,8 @@ samplicate (ctx)
 	    {
 	      if (ctx->debug)
 		{
-		  fprintf (stderr, "Not matching %s/", inet_ntoa(sctx->source));
-		  fprintf (stderr, "%s\n", inet_ntoa(sctx->mask));
+		  fprintf (stderr, "Not matching %s/", inet_ntoa(((struct sockaddr_in *) &sctx->source)->sin_addr));
+		  fprintf (stderr, "%s\n", inet_ntoa(((struct sockaddr_in *) &sctx->mask)->sin_addr));
 		}
 	    }
 	}

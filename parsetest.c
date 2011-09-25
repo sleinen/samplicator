@@ -66,7 +66,7 @@ extern int inet_aton (const char *, struct in_addr *);
 #include "read_config.h"
 #include "rawsend.h"
 
-static int parse_cf_string (const char *, struct samplicator_context *, struct source_context *);
+static int parse_cf_string (const char *, struct samplicator_context *);
 static int check_int_equal (int, int);
 static int check_non_null (const void *);
 static int check_null (const void *);
@@ -84,7 +84,13 @@ check_receiver (receiver, addr, port, af, freq, ttl)
      int freq;
      int ttl;
 {
-  check_int_equal (receiver->addr.sin_family, af);
+  check_int_equal (receiver->addr.ss_family, af);
+  if (af == AF_INET)
+    check_int_equal (receiver->addrlen, sizeof (struct sockaddr_in));
+  else if (af == AF_INET6)
+    check_int_equal (receiver->addrlen, sizeof (struct sockaddr_in6));
+  else
+    return test_fail ();
   check_address_equal ((struct sockaddr *) &receiver->addr, addr, port, af);
   check_int_equal (receiver->freq, freq);
   check_int_equal (receiver->ttl, ttl);
@@ -105,22 +111,21 @@ main (int argc, char **argv)
 {
   struct samplicator_context ctx;
   struct source_context *sctx;
-  struct source_context sc;
 
   if (argc != 1)
     {
       fprintf (stderr, "Usage: %s\n", argv[0]);
       exit (1);
     }
-  check_int_equal (parse_cf_string ("", &ctx, &sc), 0);
+  check_int_equal (parse_cf_string ("", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   check_null (ctx.sources);
 
 #ifdef NOTYET
-  check_int_equal (parse_cf_string ("1.2.3.4/30+ 6.7.8.9/1234\n", &ctx, &sc), -1);
+  check_int_equal (parse_cf_string ("1.2.3.4/30+ 6.7.8.9/1234\n", &ctx), -1);
 #endif
 
-  check_int_equal (parse_cf_string ("1.2.3.4/30: 6.7.8.9/1234\n2.3.4.5: 7.8.9.0/4321", &ctx, &sc), 0);
+  check_int_equal (parse_cf_string ("1.2.3.4/255.255.255.252: 6.7.8.9/1234\n2.3.4.5: 7.8.9.0/4321", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   if (check_non_null (sctx = ctx.sources))
     {
@@ -137,7 +142,23 @@ main (int argc, char **argv)
     }
 
 #ifdef NOTYET
-  check_int_equal (parse_cf_string ("1.2.3.4/30: localhost/1234", &ctx, &sc), 0);
+  check_int_equal (parse_cf_string ("1.2.3.4/30: 6.7.8.9/1234\n2.3.4.5: 7.8.9.0/4321", &ctx), 0);
+  check_int_equal (ctx.fork, 0);
+  if (check_non_null (sctx = ctx.sources))
+    {
+      check_source_address_mask (sctx, "1.2.3.4", "255.255.255.252", AF_INET);
+      check_int_equal (sctx->nreceivers, 1);
+      check_receiver (&sctx->receivers[0], "6.7.8.9", 1234, AF_INET, 1, DEFAULT_TTL);
+      if (check_non_null (sctx = sctx->next))
+	{
+	  check_source_address_mask (sctx, "2.3.4.5", "255.255.255.255", AF_INET);
+	  check_int_equal (sctx->nreceivers, 1);
+	  check_receiver (&sctx->receivers[0], "7.8.9.0", 4321, AF_INET, 1, DEFAULT_TTL);
+	  check_null (sctx->next);
+	}
+    }
+
+  check_int_equal (parse_cf_string ("1.2.3.4/30: localhost/1234", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   if (check_non_null (sctx = ctx.sources))
     {
@@ -146,7 +167,7 @@ main (int argc, char **argv)
       check_receiver (&sctx->receivers[0], "127.0.0.1", 1234, AF_INET, 1, DEFAULT_TTL);
     }
 
-  check_int_equal (parse_cf_string ("1.2.3.4/30: ip6-localhost/1234", &ctx, &sc), 0);
+  check_int_equal (parse_cf_string ("1.2.3.4/30: ip6-localhost/1234", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   if (check_non_null (sctx = ctx.sources))
     {
@@ -155,7 +176,7 @@ main (int argc, char **argv)
       check_receiver (&sctx->receivers[0], "::1", 1234, AF_INET6, 1, DEFAULT_TTL);
     }
 
-  check_int_equal (parse_cf_string ("[0::0]/0: [2001:db8:0::1]/1234/10,34\n", &ctx, &sc), 0);
+  check_int_equal (parse_cf_string ("[0::0]/0: [2001:db8:0::1]/1234/10,34\n", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   sctx = ctx.sources;
   if (check_non_null (sctx))
@@ -166,7 +187,7 @@ main (int argc, char **argv)
       check_null (sctx->next);
     }
 
-  check_int_equal (parse_cf_string ("[0::0]/0: [2001:db8:0::1]/1234/10,34\n", &ctx, &sc), 0);
+  check_int_equal (parse_cf_string ("[0::0]/0: [2001:db8:0::1]/1234/10,34\n", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   sctx = ctx.sources;
   if (check_non_null (sctx))
@@ -177,7 +198,7 @@ main (int argc, char **argv)
       check_null (sctx->next);
     }
 
-  check_int_equal (parse_cf_string ("[2001:db8:0:4::]: [2001:db8:0::1]\n", &ctx, &sc), 0);
+  check_int_equal (parse_cf_string ("[2001:db8:0:4::]: [2001:db8:0::1]\n", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   sctx = ctx.sources;
   if (check_non_null (sctx))
@@ -193,10 +214,9 @@ main (int argc, char **argv)
 }
 
 static int
-parse_cf_string (s, ctx, sctx)
+parse_cf_string (s, ctx)
      const char *s;
      struct samplicator_context *ctx;
-     struct source_context *sctx;
 {
   const char *test_file_name = "parsetest.cf";
   FILE *fp;
@@ -233,7 +253,7 @@ parse_cf_string (s, ctx, sctx)
   *ap++ = test_file_name;
   n_args = ap-args;
   *ap++ = (char *) 0;
-  return parse_args (n_args, args, ctx, sctx);
+  return parse_args (n_args, args, ctx);
 }
 
 static int

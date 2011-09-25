@@ -15,35 +15,37 @@ enum receiver_flags
 };
 
 struct samplicator_context {
-  struct source_context *sources;
-  struct in_addr	faddr;
-  int			fport;
-  long			sockbuflen;
-  int			debug;
-  int			fork;
-  enum receiver_flags	defaultflags;
+  struct source_context	       *sources;
+  struct in_addr		faddr;
+  int				fport;
+  long				sockbuflen;
+  int				debug;
+  int				fork;
+  enum receiver_flags		defaultflags;
 
-  int			fsockfd;
+  int				fsockfd;
 };
 
 struct receiver {
-  int			fd;
-  struct sockaddr_in	addr;
-  int			port;
-  int			freq;
-  int			freqcount;
-  int			ttl;
-  enum receiver_flags	flags;
+  int				fd;
+  struct sockaddr_storage	addr;
+  socklen_t			addrlen;
+  int				port;
+  int				freq;
+  int				freqcount;
+  int				ttl;
+  enum receiver_flags		flags;
 };
 
 struct source_context {
-  struct source_context *next;
-  struct in_addr	source;
-  struct in_addr	mask;
-  struct receiver      *receivers;
-  unsigned		nreceivers;
-  unsigned		tx_delay;
-  int			debug;
+  struct source_context	       *next;
+  struct sockaddr_storage	source;
+  struct sockaddr_storage	mask;
+  struct receiver	       *receivers;
+  unsigned			nreceivers;
+  unsigned			tx_delay;
+  int			
+	debug;
 };
 
 #endif /* not _SAMPLICATOR_H_ */
