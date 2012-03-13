@@ -78,6 +78,7 @@ struct samplicator_context {
   int			debug;
   int			fork;
   enum peer_flags	defaultflags;
+  unsigned		default_tx_delay;
 
   int			fsockfd;
 };
@@ -166,7 +167,7 @@ parse_args (argc, argv, ctx, sctx)
   sctx->source.s_addr = 0;
   sctx->mask.s_addr = 0;
 
-  sctx->tx_delay = 0;
+  ctx->default_tx_delay = sctx->tx_delay = 0;
 
   while ((i = getopt (argc, argv, "hb:d:p:s:x:c:fSn")) != -1)
     {
@@ -203,7 +204,7 @@ should be between 0 and 65535\n",
 	    }
 	  break;
 	case 'x': /* transmit delay */
-	  sctx->tx_delay = atoi (optarg);
+	  ctx->default_tx_delay = sctx->tx_delay = atoi (optarg);
 	  break;
 	case 'S': /* spoof */
 	  ctx->defaultflags |= pf_SPOOF;
@@ -417,6 +418,10 @@ read_cf_file (file, ctx)
 	  *c++ = 0;
 
 	  sctx = calloc(1, sizeof(struct source_context));
+
+	  /* Inherit parameters from defaults */
+	  sctx->tx_delay = ctx->default_tx_delay;
+
 	  if ((slash = strchr (tmp_s, '/')) != 0)
 	    {
 	      *slash++ = 0;
@@ -566,7 +571,7 @@ samplicate (ctx)
       if (len != sizeof remote_address)
 	{
 	  fprintf (stderr, "recvfrom() return address length %d - expected %d\n",
-		   len, sizeof remote_address);
+		   len, (int) sizeof remote_address);
 	  exit (1);
 	}
       if (ctx->debug)
@@ -576,7 +581,6 @@ samplicate (ctx)
 		   inet_ntoa (remote_address.sin_addr),
 		   (int) ntohs (remote_address.sin_port));
 	}
-
 
       for(sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
 	{

@@ -9,6 +9,9 @@ The size limit for replicated UDP datagrams has been increased from
 tested whether such large packets are sent out correctly on all
 systems when "raw" (spoofing) mode is used.
 
+The `-x' option is no longer ignored when a configuration file is
+specified using `-c'.
+
 Version 1.3.6:
 
 Checkpoint after some cleanup (update e-mail addresses etc.) for the
