@@ -36,7 +36,12 @@ extern int inet_aton (const char *, struct in_addr *);
 
 #include "rawsend.h"
 
-#define PDU_SIZE 1500
+/* the maximum size of "PDUs" that we can process.
+
+ We now use the maximum payload size of a UDP datagram.  This is 65527
+ bytes - 65535, which is the maximum value of the UDP header's length
+ field, minus 8, which is the size of the UDP header. */
+#define PDU_SIZE 65527
 
 #define FLOWPORT 2000 
 
