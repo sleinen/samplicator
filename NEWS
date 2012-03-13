@@ -2,6 +2,13 @@ Samplicator NEWS -- history of user-visible changes	-*- text -*-
 
 Copyright (c) 2000-2005 Simon Leinen  <simon.leinen@switch.ch>
 
+Version 1.3.7:
+
+The size limit for replicated UDP datagrams has been increased from
+1500 to 65535, the maximum size for UDP datagrams.  It should be
+tested whether such large packets are sent out correctly on all
+systems when "raw" (spoofing) mode is used.
+
 Version 1.3.6:
 
 Checkpoint after some cleanup (update e-mail addresses etc.) for the
