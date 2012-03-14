@@ -24,3 +24,6 @@ specific address) and `-f' (fork into background) options.
 
 Gary Mikula <g2ugzm@hotmail.com> contributed UDP checksum
 generation in `spoof' mode.
+
+Brad Dreisbach <bradd@ntt.net> found and fixed a portability issue in
+rawsend.c that broke spoofing mode for little-endian Solaris systems.

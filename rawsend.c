@@ -117,14 +117,13 @@ raw_send_from_to (s, msg, msglen, saddr, daddr, ttl, flags)
      should be in either host or network byte order.  Usually
      BSD-derivatives require host byte order, but at least OpenBSD
      since version 2.1 uses network byte order.  Linux uses network
-     byte order for all IP header fields. */
-#if defined (__linux__) || (defined (__OpenBSD__) && (OpenBSD > 199702))
+     byte order for all IP header fields.  Solaris does as well. */
+#if defined (__linux__) || ((defined(__sun) || defined (__sun__)) && (defined(__SVR4) || defined(__srv4__))) || (defined (__OpenBSD__) && (OpenBSD > 199702))
   ih.ip_len = htons (length);
-  ih.ip_off = htons (0);
 #else 
   ih.ip_len = length;
-  ih.ip_off = 0;
 #endif
+  ih.ip_off = 0;
   ih.ip_id = htons (0);
   ih.ip_ttl = ttl;
   ih.ip_p = 17;

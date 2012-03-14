@@ -6,11 +6,14 @@ Version 1.3.7:
 
 The size limit for replicated UDP datagrams has been increased from
 1500 to 65535, the maximum size for UDP datagrams.  It should be
-tested whether such large packets are sent out correctly on all
-systems when "raw" (spoofing) mode is used.
+tested whether such large packets are sent out (i.e. fragmented)
+correctly on all systems when "raw" (spoofing) mode is used.
 
-The `-x' option is no longer ignored when a configuration file is
-specified using `-c'.
+Bug fix: The `-x' option is no longer ignored when a configuration
+file is specified using `-c'.
+
+Bug fix: Spoofing now works on little-endian (Intel/AMD) Solaris
+systems.
 
 Version 1.3.6:
 
