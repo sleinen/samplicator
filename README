@@ -39,6 +39,7 @@ Where each <option> can be one of
 	-S		maintain (spoof) source addresses
 	-n		don't compute UDP checksum (only relevant with -S)
 	-f		fork program into background
+	-V		to print a version message and exit
 	-h		to print a usage message and exit
 
 and each <destination> should be specified as

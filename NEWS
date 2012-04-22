@@ -9,6 +9,9 @@ The size limit for replicated UDP datagrams has been increased from
 tested whether such large packets are sent out (i.e. fragmented)
 correctly on all systems when "raw" (spoofing) mode is used.
 
+Samplicate now has a `-V' option that causes it to output its
+version.  The version is also included in the normal `usage' message.
+
 Bug fix: The `-x' option is no longer ignored when a configuration
 file is specified using `-c'.
 

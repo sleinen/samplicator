@@ -95,6 +95,7 @@ struct source_context {
 };
 
 static void usage(const char *);
+static void announce_version (void);
 static int send_pdu_to_peer (struct peer *, const void *, size_t,
 			     struct sockaddr_in *);
 static void parse_args (int, char **, struct samplicator_context *, struct source_context *);
@@ -169,7 +170,7 @@ parse_args (argc, argv, ctx, sctx)
 
   ctx->default_tx_delay = sctx->tx_delay = 0;
 
-  while ((i = getopt (argc, argv, "hb:d:p:s:x:c:fSn")) != -1)
+  while ((i = getopt (argc, argv, "hVb:d:p:s:x:c:fSn")) != -1)
     {
       switch (i)
 	{
@@ -217,6 +218,10 @@ should be between 0 and 65535\n",
 	  break;
 	case 'h': /* help */
 	  usage (argv[0]);
+	  exit (0);
+	  break;
+	case 'V': /* version */
+	  announce_version ();
 	  exit (0);
 	  break;
 	default:
@@ -627,9 +632,16 @@ samplicate (ctx)
 }
 
 static void
+announce_version ()
+{
+  fprintf (stderr, "This is %s, version %s.\n", PACKAGE, VERSION);
+}
+
+static void
 usage (progname)
      const char *progname;
 {
+  announce_version ();
   fprintf (stderr, "Usage: %s [option...] receiver...\n\
 \n\
 Supported options:\n\
@@ -643,6 +655,7 @@ Supported options:\n\
   -x <delay>               transmit delay in microseconds\n\
   -c configfile            specify a config file to read\n\
   -f                       fork program into background\n\
+  -V                       print program version and exit\n\
   -h                       print this usage message and exit\n\
 \n\
 Specifying receivers:\n\

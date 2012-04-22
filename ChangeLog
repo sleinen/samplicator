@@ -1,5 +1,8 @@
 2006-04-22  Simon Leinen  <simon.leinen@switch.ch>
 
+	* samplicate.c (announce_version, parse_args, usage): Print
+	version in usage string, or when the user gives the `-V' option.
+
 	* rawsend.c, rawsend.h, samplicate.c: Changed type of sockbuflen
 	from long to int, as this is what setsockopt() wants.
 
