@@ -1,3 +1,8 @@
+2006-04-22  Simon Leinen  <simon.leinen@switch.ch>
+
+	* rawsend.c, rawsend.h, samplicate.c: Changed type of sockbuflen
+	from long to int, as this is what setsockopt() wants.
+
 2006-03-28  Simon Leinen  <simon.leinen@switch.ch>
 
 	* samplicate.c (enum peer_flags): New flag `pf_CHECKSUM'.

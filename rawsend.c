@@ -180,7 +180,7 @@ raw_send_from_to (s, msg, msglen, saddr, daddr, ttl, flags)
 
 extern int
 make_raw_udp_socket (sockbuflen)
-     long sockbuflen;
+     int sockbuflen;
 {
   int s;
   if ((s = socket (PF_INET, SOCK_RAW, IPPROTO_RAW)) == -1)
@@ -190,7 +190,7 @@ make_raw_udp_socket (sockbuflen)
       if (setsockopt (s, SOL_SOCKET, SO_SNDBUF,
 		      (char *) &sockbuflen, sizeof sockbuflen) == -1)
 	{
-	  fprintf (stderr, "setsockopt(SO_SNDBUF,%ld): %s\n",
+	  fprintf (stderr, "setsockopt(SO_SNDBUF,%d): %s\n",
 		   sockbuflen, strerror (errno));
 	}
     }

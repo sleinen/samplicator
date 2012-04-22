@@ -27,3 +27,6 @@ generation in `spoof' mode.
 
 Brad Dreisbach <bradd@ntt.net> found and fixed a portability issue in
 rawsend.c that broke spoofing mode for little-endian Solaris systems.
+
+John Heasley <heas@shrubbery.net> found and fixed the int/long type
+error in setsockopt() calls.

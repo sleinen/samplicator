@@ -74,7 +74,7 @@ struct samplicator_context {
   struct source_context *sources;
   struct in_addr	faddr;
   int			fport;
-  long			sockbuflen;
+  int			sockbuflen;
   int			debug;
   int			fork;
   enum peer_flags	defaultflags;
@@ -101,7 +101,7 @@ static void parse_args (int, char **, struct samplicator_context *, struct sourc
 static int parse_peers (int, char **, struct samplicator_context *, struct source_context *);
 static int init_samplicator (struct samplicator_context *);
 static int samplicate (struct samplicator_context *);
-static int make_cooked_udp_socket (long);
+static int make_cooked_udp_socket (int);
 static void read_cf_file (const char *, struct samplicator_context *);
 
 /* Work around a GCC compatibility problem with respect to the
@@ -174,7 +174,7 @@ parse_args (argc, argv, ctx, sctx)
       switch (i)
 	{
 	case 'b': /* buflen */
-	  ctx->sockbuflen = atol (optarg);
+	  ctx->sockbuflen = atoi (optarg);
 	  break;
 	case 'd': /* debug */
 	  ctx->debug = atoi (optarg);
@@ -501,7 +501,7 @@ init_samplicator (ctx)
   if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_RCVBUF,
 		  (char *) &ctx->sockbuflen, sizeof ctx->sockbuflen) == -1)
     {
-      fprintf (stderr, "setsockopt(SO_RCVBUF,%ld): %s\n",
+      fprintf (stderr, "setsockopt(SO_RCVBUF,%d): %s\n",
 	       ctx->sockbuflen, strerror (errno));
     }
   if (bind (ctx->fsockfd,
@@ -697,7 +697,7 @@ send_pdu_to_peer (peer, fpdu, length, source_addr)
 
 static int
 make_cooked_udp_socket (sockbuflen)
-     long sockbuflen;
+     int sockbuflen;
 {
   int s;
   if ((s = socket (PF_INET, SOCK_DGRAM, 0)) == -1)
@@ -707,7 +707,7 @@ make_cooked_udp_socket (sockbuflen)
       if (setsockopt (s, SOL_SOCKET, SO_SNDBUF,
 		      (char *) &sockbuflen, sizeof sockbuflen) == -1)
 	{
-	  fprintf (stderr, "setsockopt(SO_SNDBUF,%ld): %s\n",
+	  fprintf (stderr, "setsockopt(SO_SNDBUF,%d): %s\n",
 		   sockbuflen, strerror (errno));
 	}
     }

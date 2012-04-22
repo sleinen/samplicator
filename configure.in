@@ -1,5 +1,5 @@
 AC_INIT(samplicate.c)
-AM_INIT_AUTOMAKE(samplicate, 1.3.7-beta3)
+AM_INIT_AUTOMAKE(samplicate, 1.3.7-beta4)
 AM_CONFIG_HEADER(config.h)
 AC_PROG_CC
 AC_PROG_INSTALL

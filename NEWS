@@ -15,6 +15,9 @@ file is specified using `-c'.
 Bug fix: Spoofing now works on little-endian (Intel/AMD) Solaris
 systems.
 
+Bug fix: Corrected the type of some setsockopt() arguments when the
+send or receive buffer sizes are set.
+
 Version 1.3.6:
 
 Checkpoint after some cleanup (update e-mail addresses etc.) for the
