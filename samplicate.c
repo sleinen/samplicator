@@ -396,7 +396,7 @@ read_cf_file (file, ctx)
   char tmp_s[MAX_LINELEN];
   int argc;
   char *argv[MAX_PEERS];
-  unsigned char *c, *slash, *e;
+  char *c, *slash, *e;
   struct source_context *sctx;
 
   if ((cf = fopen(file,"r")) == NULL)
@@ -409,7 +409,7 @@ read_cf_file (file, ctx)
     {
       fgets(tmp_s, MAX_LINELEN - 1, cf);
 	
-      if ((c = strchr(tmp_s, '#')) != 0)
+      if ((c = strchr(tmp_s, '#')) != NULL)
 	continue;
 	
       /* lines look like this:
@@ -418,7 +418,7 @@ read_cf_file (file, ctx)
 
       */
 	
-      if ((c = strchr(tmp_s, ':')) != 0)
+      if ((c = strchr(tmp_s, ':')) != NULL)
 	{
 	  *c++ = 0;
 
@@ -427,7 +427,7 @@ read_cf_file (file, ctx)
 	  /* Inherit parameters from defaults */
 	  sctx->tx_delay = ctx->default_tx_delay;
 
-	  if ((slash = strchr (tmp_s, '/')) != 0)
+	  if ((slash = strchr (tmp_s, '/')) != NULL)
 	    {
 	      *slash++ = 0;
 		

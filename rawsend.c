@@ -298,7 +298,7 @@ uint16_t udp_sum_calc( uint16_t len_udp,
 	 * */
         for( i=0; i< ( len_udp - pad ); i+=2 ) {
           high  = ntohs(*(uint16_t *)buff);
-	  buff +=2;
+	  buff = (char *) buff + 2;
 	  sum  += ( uint32_t ) high;
 	}
 
@@ -320,4 +320,4 @@ uint16_t udp_sum_calc( uint16_t len_udp,
 
 	/* finally, return the 16bit network formated checksum */
         return ((uint16_t) htons(sum) );
-};
+}
