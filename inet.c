@@ -31,7 +31,7 @@ init_hints_from_preferences (hints, ctx)
      const struct samplicator_context *ctx;
 {
   bzero (hints, sizeof *hints);
-  hints->ai_flags = AI_PASSIVE|AI_ADDRCONFIG|AI_V4MAPPED;
+  hints->ai_flags = AI_PASSIVE|AI_ADDRCONFIG;
   hints->ai_socktype = SOCK_DGRAM;
   if (ctx->ipv4_only)
     {
@@ -40,7 +40,6 @@ init_hints_from_preferences (hints, ctx)
   else if (ctx->ipv6_only)
     {
       hints->ai_family = AF_INET6;
-      hints->ai_flags &= ~AI_V4MAPPED;
     }
   else
     {

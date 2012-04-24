@@ -40,6 +40,8 @@ Where each <option> can be one of
 	-n		don't compute UDP checksum (only relevant with -S)
 	-f		fork program into background
 	-m <pidfile>	write the process ID to a file
+	-4		IPv4 only
+	-6		IPv6 only
 	-h		to print a usage message and exit
 
 and each <destination> should be specified as

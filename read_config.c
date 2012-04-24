@@ -181,6 +181,7 @@ resolve_addr (const char *addrstring,
   memcpy (addrp, res->ai_addr, res->ai_addrlen);
   if (addrlenp != 0)
     *addrlenp = res->ai_addrlen;
+  freeaddrinfo (res);
   return 0;
 }
 
@@ -778,6 +779,8 @@ Supported options:\n\
   -c <configfile>          specify a config file to read\n\
   -f                       fork program into background\n\
   -m <pidfile>             write process ID to file\n\
+  -4                       IPv4 only\n\
+  -6                       IPv6 only\n\
   -h                       print this usage message and exit\n\
 \n\
 Specifying receivers:\n\
