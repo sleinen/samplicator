@@ -10,17 +10,17 @@ DOWNLOADING
 -----------
 
 This package is distributed under
-	http://code.google.com/p/samplicator/
+	https://github.com/sleinen/samplicator/
 
 INSTALLATION
 ------------
 
-See the `INSTALL' file.
+See the `INSTALL` file.
 
 AUTHORS
 -------
 
-See the `AUTHORS' file.
+See the `AUTHORS` file.
 
 USAGE
 -----
@@ -29,7 +29,7 @@ The usage convention for the program is
 
 	$ samplicate [<option>...] [<destination>...]
 
-Where each <option> can be one of
+Where each `<option>` can be one of
 
 	-d <level>	to set the debugging level
 	-s <address>	to set interface address on which to listen
@@ -48,8 +48,8 @@ Where each <option> can be one of
 	-6		IPv6 only
 	-h		to print a usage message and exit
 
-and each <destination> should be specified as
-<addr>[/<port>[/<interval>[,ttl]]], where
+and each `<destination>` should be specified as
+`<addr>[/<port>[/<interval>[,ttl]]]`, where
 
 	<addr>		IP address of the receiver
 	<port>		port UDP number of the receiver (default 2000)
@@ -60,11 +60,14 @@ and each <destination> should be specified as
 
 Config file format:
 
-  a.b.c.d[/e.f.g.h]: receiver ...
+    a.b.c.d[/e.f.g.h]: receiver ...
+
 where:
-  a.b.c.d		is the senders IP address
-  e.f.g.h		is a mask to apply to the sender (default 255.255.255.255)
-  receiver		see above.
+
+	a.b.c.d     is the sender's IP address
+    e.f.g.h     is a mask to apply to the sender (default 255.255.255.255)
+    receiver    see above.
 
 Receivers specified on the command line will get all packets, those
-specified in the config-file will get only packets with a matching source.
+specified in the config-file will get only packets with a matching
+source.
