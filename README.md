@@ -10,7 +10,7 @@ DOWNLOADING
 -----------
 
 This package is distributed under
-	http://code.google.com/p/samplicator/
+	https://github.com/sleinen/samplicator/
 
 INSTALLATION
 ------------
