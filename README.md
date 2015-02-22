@@ -29,7 +29,7 @@ The usage convention for the program is
 
 	$ samplicate [<option>...] [<destination>...]
 
-Where each <option> can be one of
+Where each `<option>` can be one of
 
 	-d <level>	to set the debugging level
 	-s <address>	to set interface address on which to listen
@@ -48,7 +48,7 @@ Where each <option> can be one of
 	-6		IPv6 only
 	-h		to print a usage message and exit
 
-and each <destination> should be specified as
+and each `<destination>` should be specified as
 `<addr>[/<port>[/<interval>[,ttl]]]`, where
 
 	<addr>		IP address of the receiver
@@ -64,7 +64,7 @@ Config file format:
 
 where:
 
-	a.b.c.d     is the senders IP address
+	a.b.c.d     is the sender's IP address
     e.f.g.h     is a mask to apply to the sender (default 255.255.255.255)
     receiver    see above.
 
