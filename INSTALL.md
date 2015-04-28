@@ -1,7 +1,7 @@
-Instructions for installing the samplicator		-*- text -*-
--------------------------------------------
+Instructions for installing the samplicator
+===========================================
 
-Copyright (c) 2000-2009 Simon Leinen  <simon.leinen@switch.ch>
+Copyright (c) 2000-2015 Simon Leinen  <simon.leinen@gmail.com>
 
 This distribution uses GNU configure for portability and flexibility
 of installation.  You must configure the program for your system
