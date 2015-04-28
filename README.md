@@ -15,7 +15,7 @@ This package is distributed under
 INSTALLATION
 ------------
 
-See the `INSTALL` file.
+See `INSTALL.md`.
 
 AUTHORS
 -------
