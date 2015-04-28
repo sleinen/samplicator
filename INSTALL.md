@@ -19,3 +19,15 @@ The configure script accepts many arguments, some of which may even be
 useful.  Using "./configure --prefix ..." you can specify a directory
 other than /usr/local to be used as an installation destination.  Call
 "./configure --help" to get a list of arguments accepted by configure.
+
+Creating the configure script (when installing from Git)
+--------------------------------------------------------
+
+The configure script is not included in the source repository.  You
+can create it using the GNU automake and GNU autoconf tools as
+follows:
+
+    $ aclocal
+    $ autoheader
+    $ autoconf
+    $ automake -a
