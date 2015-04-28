@@ -1,6 +1,7 @@
 ## Process this file with automake to produce Makefile.in
 
 PACKAGE = samplicator
+AUTOMAKE_OPTIONS = foreign
 
 bin_PROGRAMS = samplicate
 samplicate_SOURCES = samplicate.c samplicator.h rawsend.c rawsend.h read_config.c read_config.h inet.c inet.h
