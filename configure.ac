@@ -1,4 +1,4 @@
-AC_INIT([samplicate], [1.3.7],,, [https://github.com/sleinen/samplicator])
+AC_INIT([samplicate], [1.3.8rc1],,, [https://github.com/sleinen/samplicator])
 AC_CONFIG_SRCDIR([samplicate.c])
 AM_INIT_AUTOMAKE
 AM_CONFIG_HEADER(config.h)
