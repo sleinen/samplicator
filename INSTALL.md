@@ -24,10 +24,5 @@ Creating the configure script (when installing from Git)
 --------------------------------------------------------
 
 The configure script is not included in the source repository.  You
-can create it using the GNU automake and GNU autoconf tools as
-follows:
-
-    $ aclocal
-    $ autoheader
-    $ autoconf
-    $ automake -a
+can create it using `autogen.sh`.  Note that GNU automake and GNU
+autoconf are required for this.
