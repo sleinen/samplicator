@@ -605,6 +605,7 @@ parse_receiver (struct receiver *receiverp,
       }
     memcpy (&receiverp->addr, res->ai_addr, res->ai_addrlen);
     receiverp->addrlen = res->ai_addrlen;
+    freeaddrinfo(res);
     return 0;
   }
 }
