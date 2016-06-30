@@ -38,8 +38,8 @@ Where each `<option>` can be one of
 			incoming packets (default 2000)
 	-b <buflen>	size of receive buffer (default 65536)
 	-c <configfile>	specify a config file to read
-	-x <delay>	to specify a transmission delay in units of
-			microseconds
+	-x <delay>	to specify a transmission delay after each packet,
+		    in units of	microseconds
 	-S		maintain (spoof) source addresses
 	-n		don't compute UDP checksum (only relevant with -S)
 	-f		fork program into background
