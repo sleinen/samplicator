@@ -20,6 +20,7 @@ struct samplicator_context {
   struct sockaddr_storage	faddr;
   const char		       *fport_spec;
   long				sockbuflen;
+  long				pdulen;
   int				debug;
   int				fork;
   int				ipv4_only;

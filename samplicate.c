@@ -37,8 +37,6 @@
 #include "rawsend.h"
 #include "inet.h"
 
-#define PDU_SIZE 1500
-
 static int send_pdu_to_receiver (struct receiver *, const void *, size_t,
 				 struct sockaddr *);
 static int init_samplicator (struct samplicator_context *);
@@ -318,7 +316,7 @@ static int
 samplicate (ctx)
      struct samplicator_context *ctx;
 {
-  unsigned char fpdu[PDU_SIZE];
+  unsigned char fpdu[ctx->pdulen];
   struct sockaddr_storage remote_address;
   struct source_context *sctx;
   unsigned i;
@@ -331,17 +329,17 @@ samplicate (ctx)
     {
       addrlen = sizeof remote_address;
       if ((n = recvfrom (ctx->fsockfd, (char*)fpdu,
-			 sizeof (fpdu), 0,
+			 sizeof (fpdu), MSG_TRUNC,
 			 (struct sockaddr *) &remote_address, &addrlen)) == -1)
 	{
 	  fprintf (stderr, "recvfrom(): %s\n", strerror(errno));
 	  exit (1);
 	}
-      if (n > PDU_SIZE)
+      if (n > ctx->pdulen)
 	{
 	  fprintf (stderr, "Warning: %d excess bytes discarded\n",
-		   n-PDU_SIZE);
-	  n = PDU_SIZE;
+		   n-ctx->pdulen);
+	  n = ctx->pdulen;
 	}
       if (addrlen != ctx->fsockaddrlen)
 	{

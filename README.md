@@ -47,6 +47,7 @@ Where each `<option>` can be one of
 	-4		IPv4 only
 	-6		IPv6 only
 	-h		to print a usage message and exit
+	-u <pdulen>	size of max pdu on listened socket (default 65536)
 
 and each `<destination>` should be specified as
 `<addr>[/<port>[/<interval>[,ttl]]]`, where

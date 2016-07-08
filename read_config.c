@@ -48,6 +48,7 @@
 #define FLOWPORT "2000"
 
 #define DEFAULT_SOCKBUFLEN 65536
+#define DEFAULT_PDULEN 65536
 
 #define MAX_PEERS 100
 #define MAX_LINELEN 8000
@@ -672,6 +673,7 @@ parse_args (argc, argv, ctx)
   sctx->next = (struct source_context *) NULL;
 
   ctx->sockbuflen = DEFAULT_SOCKBUFLEN;
+  ctx->pdulen = DEFAULT_PDULEN;
   ctx->faddr_spec = 0;
   bzero (&ctx->faddr, sizeof ctx->faddr);
   ctx->fport_spec = FLOWPORT;
@@ -690,12 +692,15 @@ parse_args (argc, argv, ctx)
   sctx->tx_delay = 0;
 
   optind = 1;
-  while ((i = getopt (argc, (char **) argv, "hb:d:m:p:s:x:c:fSn46")) != -1)
+  while ((i = getopt (argc, (char **) argv, "hu:b:d:m:p:s:x:c:fSn46")) != -1)
     {
       switch (i)
 	{
 	case 'b': /* buflen */
 	  ctx->sockbuflen = atol (optarg);
+	  break;
+	case 'u': /* pdu length */
+	  ctx->pdulen = atol (optarg);
 	  break;
 	case 'd': /* debug */
 	  ctx->debug = atoi (optarg);
@@ -783,6 +788,7 @@ Supported options:\n\
   -4                       IPv4 only\n\
   -6                       IPv6 only\n\
   -h                       print this usage message and exit\n\
+  -u <pdulen>              size of max pdu on listened socket (default 65536)\n\
 \n\
 Specifying receivers:\n\
 \n\
