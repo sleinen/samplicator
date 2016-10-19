@@ -3,6 +3,16 @@ Instructions for installing the samplicator
 
 Copyright (c) 2000-2015 Simon Leinen  <simon.leinen@gmail.com>
 
+Creating the configure script (when installing from Git)
+--------------------------------------------------------
+
+The configure script is not included in the source repository.  You
+can create it using `autogen.sh`.  Note that GNU automake and GNU
+autoconf are required for this.
+
+Configure, Compile, and Install
+-------------------------------
+
 This distribution uses GNU configure for portability and flexibility
 of installation.  You must configure the program for your system
 before you can compile it using make:
@@ -20,9 +30,3 @@ useful.  Using "./configure --prefix ..." you can specify a directory
 other than /usr/local to be used as an installation destination.  Call
 "./configure --help" to get a list of arguments accepted by configure.
 
-Creating the configure script (when installing from Git)
---------------------------------------------------------
-
-The configure script is not included in the source repository.  You
-can create it using `autogen.sh`.  Note that GNU automake and GNU
-autoconf are required for this.
