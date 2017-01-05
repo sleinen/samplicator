@@ -30,3 +30,15 @@ useful.  Using "./configure --prefix ..." you can specify a directory
 other than /usr/local to be used as an installation destination.  Call
 "./configure --help" to get a list of arguments accepted by configure.
 
+Startup script for systemd
+--------------------------
+
+A simple `samplicator.service` systemd Service File for samplicator is
+included. It works at least on CentOS 7.x, use as an example:
+
+- modify `ExecStart` as desired for your local situation
+- write the referred `samplicator.conf`
+- and then install and start the new service:
+
+	cp samplicator.service /etc/systemd/system/samplicator.service
+	systemctl start samplicator.service
