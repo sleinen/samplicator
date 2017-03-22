@@ -1,0 +1,440 @@
+#!/usr/bin/env sh
+#
+#
+# Description: OCF RA for samplicator, the UDP datagram resender.
+#              https://github.com/sleinen/samplicator
+# Author: Jan Wrona, wrona@cesnet.cz
+#
+# Copyright (C) 2017 CESNET
+#
+#
+# LICENSE TERMS
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+# 1. Redistributions of source code must retain the above copyright
+#    notice, this list of conditions and the following disclaimer.
+# 2. Redistributions in binary form must reproduce the above copyright
+#    notice, this list of conditions and the following disclaimer in
+#    the documentation and/or other materials provided with the
+#    distribution.
+# 3. Neither the name of the Company nor the names of its contributors
+#    may be used to endorse or promote products derived from this
+#    software without specific prior written permission.
+#
+# ALTERNATIVELY, provided that this notice is retained in full, this
+# product may be distributed under the terms of the GNU General Public
+# License (GPL) version 2 or later, in which case the provisions
+# of the GPL apply INSTEAD OF those given above.
+#
+# This software is provided ``as is'', and any express or implied
+# warranties, including, but not limited to, the implied warranties of
+# merchantability and fitness for a particular purpose are disclaimed.
+# In no event shall the company or contributors be liable for any
+# direct, indirect, incidental, special, exemplary, or consequential
+# damages (including, but not limited to, procurement of substitute
+# goods or services; loss of use, data, or profits; or business
+# interruption) however caused and on any theory of liability, whether
+# in contract, strict liability, or tort (including negligence or
+# otherwise) arising in any way out of the use of this software, even
+# if advised of the possibility of such damage.
+#
+#
+# OCF instance parameters:
+#       OCF_RESKEY_binary
+#       OCF_RESKEY_ip
+#       OCF_RESKEY_port
+#       OCF_RESKEY_buflen
+#       OCF_RESKEY_config
+#       OCF_RESKEY_delay
+#	OCF_RESKEY_destinations
+#	OCF_RESKEY_spoof
+#       OCF_RESKEY_debugging_level
+#       OCF_RESKEY_additional_args
+#######################################################################
+
+
+samplicate_start() {
+        local ARGS
+        local RC
+
+        ocf_log debug "${LOG_PREFIX}samplicate_start()"
+
+        #if resource is already running, return success immediately
+        if samplicate_monitor; then
+                ocf_log info "${LOG_PREFIX}already running"
+                return $OCF_SUCCESS
+        fi
+
+        #construct arguments (put -S first, it doesn't work otherwise for some reason)
+        ocf_is_true "$OCF_RESKEY_spoof" && ARGS="-S"
+        ARGS="${ARGS} -f" #always deamonize
+        ARGS="${ARGS} -m ${PIDFILE}" #always use pidfile
+        [ -n "$OCF_RESKEY_ip" ] && ARGS="${ARGS} -s ${OCF_RESKEY_ip}"
+        [ -n "$OCF_RESKEY_port" ] && ARGS="${ARGS} -p ${OCF_RESKEY_port}"
+        [ -n "$OCF_RESKEY_buflen" ] && ARGS="${ARGS} -b ${OCF_RESKEY_buflen}"
+        [ -n "$OCF_RESKEY_config" ] && ARGS="${ARGS} -c ${OCF_RESKEY_config}"
+        [ -n "$OCF_RESKEY_delay" ] && ARGS="${ARGS} -x ${OCF_RESKEY_delay}"
+        [ -n "$OCF_RESKEY_debugging_level" ] && ARGS="${ARGS} -d ${OCF_RESKEY_debugging_level}"
+        [ -n "$OCF_RESKEY_additional_args" ] && ARGS="${ARGS} ${OCF_RESKEY_additional_args}"
+
+        #start resource
+        ocf_log info "${LOG_PREFIX}running command: ${OCF_RESKEY_binary} ${ARGS} ${OCF_RESKEY_destinations}"
+        ocf_run "${OCF_RESKEY_binary}" ${ARGS} ${OCF_RESKEY_destinations}
+        RC=$?
+        if [ $RC -ne 0 ]; then
+                ERR="samplicate start failed, RC = ${RC}"
+                ocf_log err "${LOG_PREFIX}${ERR}"
+                ocf_exit_reason "${ERR}"
+                return $OCF_ERR_GENERIC
+        fi
+
+        #spin on monitor unitl it succeeds
+        while ! samplicate_monitor; do
+                ocf_log debug "${LOG_PREFIX}after startup monitor spin"
+                sleep 1 #wait for startup
+        done
+
+        return $OCF_SUCCESS
+}
+
+samplicate_stop() {
+        local PID
+
+        ocf_log debug "${LOG_PREFIX}samplicate_stop()"
+
+
+        #if resource is already stopped, return success immediately
+        if ! samplicate_monitor; then
+                ocf_log info "${LOG_PREFIX}not running"
+                return $OCF_SUCCESS
+        fi
+
+        PID="$(cat "$PIDFILE")" #pidfile exists
+
+        #first use SIGTERM, if not successfull then use SIGKILL on PID from pidfile
+        local TIMEOUT=5; readonly TIMEOUT #stop timeout
+        local WAITING=0
+        for SIGNAL in TERM KILL; do
+                ocf_log info "${LOG_PREFIX}sending SIG${SIGNAL} to PID $PID"
+                kill -s ${SIGNAL} $PID
+
+                while [ $WAITING -lt $TIMEOUT ]; do
+                        sleep 1
+                        WAITING=$((WAITING+1))
+
+                        if ! samplicate_monitor; then
+                                ocf_log info "${LOG_PREFIX}SIG${SIGNAL} successfully stopped the process"
+                                return $OCF_SUCCESS
+                        fi
+                done
+
+                ocf_log warn "${LOG_PREFIX}SIG${SIGNAL} failed to stop the process"
+        done
+
+        ERR="failed to stop"
+        ocf_log err "${LOG_PREFIX}${ERR}"
+        ocf_exit_reason "${ERR}"
+        return $OCF_ERR_GENERIC
+}
+
+samplicate_monitor() {
+        ocf_log debug "${LOG_PREFIX}samplicate_monitor()"
+
+        #does pidfile exist?
+        [ -f "$PIDFILE" ] || return $OCF_NOT_RUNNING #no pidfile, nothing should be running
+        ocf_log debug "${LOG_PREFIX}(monitor) have pidfile"
+
+        #signal 0 only checks if process is running
+	if kill -s 0 "$(cat "${PIDFILE}")" 2> /dev/null; then
+		return $OCF_SUCCESS #process is running
+	else
+                rm -f "${PIDFILE}" #pidfile exists (resource didn't delete it)
+		return $OCF_NOT_RUNNING #but process is not running
+	fi
+}
+
+samplicate_metadata() {
+        ocf_log debug "${LOG_PREFIX}samplicate_metadata()"
+
+        cat <<EOF
+<?xml version="1.0"?>
+<!DOCTYPE resource-agent SYSTEM "ra-api-1.dtd">
+<resource-agent name="ipfixcol">
+<version>0.1</version>
+
+<longdesc lang="en">
+This is an UDP samplicator OCF resource agent.
+Samplicator receives UDP datagrams on a given port, and resends those datagrams
+to a specified set of receivers. In addition, a sampling divisor N may be
+specified individually for each receiver, which will then only receive one in N
+of the received packets.
+
+Source: https://github.com/sleinen/samplicator/
+</longdesc>
+<shortdesc lang="en">UDP samplicator resource agent.</shortdesc>
+
+<parameters>
+<parameter name="binary" unique="0" required="0">
+<longdesc lang="en">
+Path to the resource executable. Absolute or relative to the PATH.
+</longdesc>
+<shortdesc lang="en">Path to the executable.</shortdesc>
+<content type="string" />
+</parameter>
+
+<parameter name="ip" unique="0" required="0">
+<longdesc lang="en">
+Interface address on which to listen for incoming packets (defaults to any).
+Option -s.
+</longdesc>
+<shortdesc lang="en">Interface address.</shortdesc>
+<content type="string" />
+</parameter>
+
+<parameter name="port" unique="0" required="0">
+<longdesc lang="en">
+UDP port on which to listen for incoming packets (defaults to 2000).
+Option -p.
+</longdesc>
+<shortdesc lang="en">UDP port.</shortdesc>
+<content type="integer" />
+</parameter>
+
+<parameter name="buflen" unique="0" required="0">
+<longdesc lang="en">
+Size of the receive buffer (defaults to 65536).
+Option -b.
+</longdesc>
+<shortdesc lang="en">Size of the receive buffer.</shortdesc>
+<content type="integer" />
+</parameter>
+
+<parameter name="config" unique="0" required="0">
+<longdesc lang="en">
+Configuration file to read.
+Option -c.
+</longdesc>
+<shortdesc lang="en">Configuration file.</shortdesc>
+<content type="string" />
+</parameter>
+
+<parameter name="delay" unique="0" required="0">
+<longdesc lang="en">
+A transmission delay after each packet, in units of microseconds.
+Option -x.
+</longdesc>
+<shortdesc lang="en">Transmission delay.</shortdesc>
+<content type="integer" />
+</parameter>
+
+<parameter name="destinations" unique="0" required="0">
+<longdesc lang="en">
+Space separated list of destinations, each specified as addr[/port[/interval[,ttl]]].
+Positional arguments.
+</longdesc>
+<shortdesc lang="en">List of destinations.</shortdesc>
+<content type="string" />
+</parameter>
+
+<parameter name="spoof" unique="0" required="0">
+<longdesc lang="en">
+Maintain (spoof) source addresses.
+Option -S.
+</longdesc>
+<shortdesc lang="en">Maintain (spoof) source addresses.</shortdesc>
+<content type="boolean" default="false" />
+</parameter>
+
+<parameter name="debugging_level" unique="0" required="0">
+<longdesc lang="en">
+Debugging level. The higher the more output.
+Option -d.
+</longdesc>
+<shortdesc lang="en">Debugging level.</shortdesc>
+<content type="integer" />
+</parameter>
+
+<parameter name="additional_args" unique="0" required="0">
+<longdesc lang="en">
+Any valid additional samplicate arguments.
+</longdesc>
+<shortdesc lang="en">Additional arguments.</shortdesc>
+<content type="string" />
+</parameter>
+</parameters>
+
+<actions>
+<action name="start" timeout="20" />
+<action name="stop" timeout="20" />
+<action name="monitor" timeout="20" interval="10" depth="0" />
+<action name="meta-data" timeout="5" />
+<action name="validate-all" timeout="5" />
+</actions>
+
+</resource-agent>
+EOF
+}
+
+samplicate_validate() {
+        ocf_log debug "${LOG_PREFIX}samplicate_validate()"
+
+        #if binary not found, exit with $OCF_ERR_INSTALLED
+        check_binary "$OCF_RESKEY_binary"
+
+        #listening interface address test (-s), but only if we have ipcalc
+        if type ipcalc >/dev/null 2>&1; then
+		if [ -n "$OCF_RESKEY_ip" ] && \
+                        ! ipcalc -sc "${OCF_RESKEY_ip}"
+                then
+			ERR="invalid interface address \"${OCF_RESKEY_ip}\""
+			ocf_log err "${LOG_PREFIX}${ERR}"
+			ocf_exit_reason "${ERR}"
+			return $OCF_ERR_CONFIGURED
+		fi
+        fi
+
+        #listening port integer and range test (-p)
+        if [ -n "$OCF_RESKEY_port" ]; then
+		if ! ocf_is_decimal "$OCF_RESKEY_port"; then
+                        ERR="invalid port value: \"${OCF_RESKEY_port}\""
+                        ocf_log err "${LOG_PREFIX}${ERR}"
+                        ocf_exit_reason "${ERR}"
+                        return $OCF_ERR_CONFIGURED
+                elif [ "$OCF_RESKEY_port" -lt 0 -o "$OCF_RESKEY_port" -gt 65535 ]; then
+			ERR="invalid port range: \"${OCF_RESKEY_port}\""
+			ocf_log err "${LOG_PREFIX}${ERR}"
+			ocf_exit_reason "${ERR}"
+			return $OCF_ERR_CONFIGURED
+		fi
+	fi
+
+        #bufflen integer test (-b)
+        if [ -n "$OCF_RESKEY_buflen" ] && \
+                ! ocf_is_decimal "$OCF_RESKEY_buflen"
+        then
+                ERR="invalid buflen value: \"${OCF_RESKEY_buflen}\""
+                ocf_log err "${LOG_PREFIX}${ERR}"
+                ocf_exit_reason "${ERR}"
+                return $OCF_ERR_CONFIGURED
+        fi
+
+	#configuration file existence test (-c)
+        if [ -n "$OCF_RESKEY_config" -a ! -f "$OCF_RESKEY_config" ]; then
+                ERR="configuration file doesn't exist: \"${OCF_RESKEY_config}\""
+                ocf_log err "${LOG_PREFIX}${ERR}"
+                ocf_exit_reason "${ERR}"
+                return $OCF_ERR_INSTALLED
+        fi
+
+        #delay integer test (-b)
+        if [ -n "$OCF_RESKEY_delay" ] && \
+                ! ocf_is_decimal "$OCF_RESKEY_delay"
+        then
+                ERR="invalid delay value: \"${OCF_RESKEY_delay}\""
+                ocf_log err "${LOG_PREFIX}${ERR}"
+                ocf_exit_reason "${ERR}"
+                return $OCF_ERR_CONFIGURED
+        fi
+
+	#test whether we have at least one receiver
+        if [ -z "$OCF_RESKEY_config" -a -z "$OCF_RESKEY_destinations" ]; then
+		ERR="no destination specified (use either configuration file or destination list)"
+		ocf_log err "${LOG_PREFIX}${ERR}"
+		ocf_exit_reason "${ERR}"
+		return $OCF_ERR_CONFIGURED
+	fi
+
+        #debugging level integer test (-d)
+        if [ -n "$OCF_RESKEY_debugging_level" ] && \
+                ! ocf_is_decimal "$OCF_RESKEY_debugging_level"
+        then
+                ERR="invalid debugging level value: \"${OCF_RESKEY_debugging_level}\""
+                ocf_log err "${LOG_PREFIX}${ERR}"
+                ocf_exit_reason "${ERR}"
+                return $OCF_ERR_CONFIGURED
+        fi
+
+
+	#don't need to validate $OCF_RESKEY_spoof
+        #how to test $OCF_RESKEY_additional_args or $OCF_RESKEY_destinations?
+
+        return $OCF_SUCCESS
+}
+
+samplicate_main() {
+        ocf_log debug "${LOG_PREFIX}samplicate_main()"
+
+        #no validation on meta-data action
+        case "$__OCF_ACTION" in
+                meta-data)
+                        #print metadata
+                        samplicate_metadata
+                        return $OCF_SUCCESS
+                        ;;
+        esac
+
+        #validation on all other actions
+        samplicate_validate || return $?
+
+        case "$__OCF_ACTION" in
+                start)
+                        #start collector process
+                        samplicate_start
+                        return $?
+                        ;;
+                stop)
+                        #stop collector process
+                        samplicate_stop
+                        return $?
+                        ;;
+                monitor)
+                        #monitor collector status
+                        samplicate_monitor
+                        return $?
+			;;
+                validate-all)
+                        #already validated
+                        return $OCF_SUCCESS
+                        ;;
+                *)
+                        #anything else is error
+                        ERR="unimplemented OCF action \"$__OCF_ACTION\""
+                        ocf_log err "${LOG_PREFIX}${ERR}"
+                        ocf_exit_reason "${ERR}"
+                        return $OCF_ERR_UNIMPLEMENTED
+                        ;;
+        esac
+}
+
+#######################################################################
+
+#initialization
+: ${OCF_FUNCTIONS_DIR=${OCF_ROOT}/lib/heartbeat}
+. ${OCF_FUNCTIONS_DIR}/ocf-shellfuncs
+
+#use supplied values or default values
+OCF_RESKEY_binary_default=samplicate
+: "${OCF_RESKEY_binary="${OCF_RESKEY_binary_default}"}"
+
+#initialize global constants
+readonly PIDFILE="${HA_VARRUN}/samplicate.pid"
+readonly LOG_PREFIX="${__OCF_ACTION}: "
+
+#argument check
+if [ $# -ne 1 ]; then
+        ERR="invalid number of arguments ($#): $*"
+        ocf_log err "${LOG_PREFIX}${ERR}"
+        ocf_exit_reason "${ERR}"
+        exit $OCF_ERR_GENERIC
+else
+        ocf_log debug "${LOG_PREFIX}starting"
+fi
+
+#call main
+samplicate_main
+RC=$?
+
+ocf_log debug "${LOG_PREFIX}exitting (RC=${RC})"
+exit $RC
