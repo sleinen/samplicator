@@ -678,6 +678,7 @@ parse_args (argc, argv, ctx)
   bzero (&ctx->faddr, sizeof ctx->faddr);
   ctx->fport_spec = FLOWPORT;
   ctx->debug = 0;
+  ctx->timeout = 0;
   ctx->ipv4_only = 0;
   ctx->ipv6_only = 0;
   ctx->fork = 0;
@@ -692,7 +693,7 @@ parse_args (argc, argv, ctx)
   sctx->tx_delay = 0;
 
   optind = 1;
-  while ((i = getopt (argc, (char **) argv, "hu:b:d:m:p:s:x:c:fSn46")) != -1)
+  while ((i = getopt (argc, (char **) argv, "hu:b:d:t:m:p:s:x:c:fSn46")) != -1)
     {
       switch (i)
 	{
@@ -705,6 +706,9 @@ parse_args (argc, argv, ctx)
 	case 'd': /* debug */
 	  ctx->debug = atoi (optarg);
 	  break;
+        case 't': /* Timeout */
+         ctx->timeout = atoi (optarg);
+         break;
 	case 'n': /* no UDP checksums */
 	  ctx->default_receiver_flags &= ~pf_CHECKSUM;
 	  break;
@@ -778,6 +782,8 @@ Supported options:\n\
   -p <port>                UDP port to accept flows on (default %s)\n\
   -s <address>             Interface address to accept flows on (default any)\n\
   -d <level>               debug level\n\
+  -t <timeout_ms>          Exit with RC 5 if no data is received for this\n\
+                           amount of milliseconds\n\
   -b <size>                set socket buffer size (default %lu)\n\
   -n			   don't compute UDP checksum (leave at 0)\n\
   -S                       maintain (spoof) source addresses\n\
