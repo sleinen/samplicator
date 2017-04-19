@@ -38,7 +38,9 @@ included. It works at least on CentOS 7.x, use as an example:
 
 - modify `ExecStart` as desired for your local situation
 - write the referred `samplicator.conf`
-- and then install and start the new service:
+
+Then install and start the new service. On my CentOS 7.2, it looks like this:
 
 	cp samplicator.service /etc/systemd/system/samplicator.service
+	systemctl daemon-reload
 	systemctl start samplicator.service
