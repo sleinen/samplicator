@@ -24,3 +24,5 @@ specific address) and `-f' (fork into background) options.
 
 Gary Mikula <g2ugzm@hotmail.com> contributed UDP checksum
 generation in `spoof' mode.
+
+Jan Wrona (@jwrona) contributed the OCF Resource Agent script.
