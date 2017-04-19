@@ -10,6 +10,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <netdb.h>
+#include <poll.h>
 #ifdef HAVE_ARPA_INET_H
 # include <arpa/inet.h>
 #endif
@@ -327,6 +328,20 @@ samplicate (ctx)
 
   while (1)
     {
+      if (ctx->timeout)
+      {
+          struct pollfd fds[1];
+          fds[0].fd=ctx->fsockfd;
+          fds[0].events=POLLIN;
+          int rc=poll(fds, 1, ctx->timeout);
+          if (!rc)
+          {
+              fprintf (stderr, "Timeout, no data received in %d milliseconds.\n",
+                  ctx->timeout);
+              exit (5);
+          }
+      }
+
       addrlen = sizeof remote_address;
       if ((n = recvfrom (ctx->fsockfd, (char*)fpdu,
 			 sizeof (fpdu), MSG_TRUNC,
@@ -337,7 +352,7 @@ samplicate (ctx)
 	}
       if (n > ctx->pdulen)
 	{
-	  fprintf (stderr, "Warning: %d excess bytes discarded\n",
+	  fprintf (stderr, "Warning: %ld excess bytes discarded\n",
 		   n-ctx->pdulen);
 	  n = ctx->pdulen;
 	}

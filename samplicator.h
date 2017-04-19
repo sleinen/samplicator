@@ -22,6 +22,7 @@ struct samplicator_context {
   long				sockbuflen;
   long				pdulen;
   int				debug;
+  int				timeout;
   int				fork;
   int				ipv4_only;
   int				ipv6_only;
