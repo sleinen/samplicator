@@ -662,12 +662,12 @@ expand_port_ranges (argc, argv, exp_argc, exp_argv)
              {
                  char *newarg=(char *) malloc (strlen (argv[j]+1));
                  if (!newarg)
-                     return 1;
+                     return -1;
                  memcpy (newarg,argv[j],port_begin-argv[j]+1);
                  sprintf (newarg+(port_begin-argv[j])+1, "%d%s", k, suffix);
                  *exp_argv=(const char **) realloc (*exp_argv, (1+*exp_argc)*sizeof (char *));
                  if (*exp_argv==NULL)
-                     return 1;
+                     return -1;
                  (*exp_argv)[*exp_argc]=newarg;
                  *exp_argc=*exp_argc+1;
              }
@@ -678,7 +678,7 @@ expand_port_ranges (argc, argv, exp_argc, exp_argv)
           /* Let parse receiver handle this case */
           *exp_argv=(const char **) realloc (*exp_argv, (1+*exp_argc)*sizeof (char *));
           if (*exp_argv==NULL)
-              return 1;
+              return -1;
           (*exp_argv)[*exp_argc]=argv[j];
           *exp_argc=*exp_argc+1;
       }

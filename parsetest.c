@@ -136,6 +136,27 @@ main (int argc, char **argv)
 	}
     }
 
+  check_int_equal (parse_cf_string ("1.2.3.4/30: 6.7.8.9/1200-1210\n", &ctx), 0);
+  if (check_non_null (sctx = ctx.sources))
+  {
+    check_int_equal (sctx->nreceivers, 11);
+    check_receiver (&sctx->receivers[0], "6.7.8.9", 1200, AF_INET, 1, DEFAULT_TTL);
+    if (sctx->nreceivers==11)
+    {
+      check_receiver (&sctx->receivers[10], "6.7.8.9", 1210, AF_INET, 1, DEFAULT_TTL);
+    }
+  }
+  check_int_equal (parse_cf_string ("1.2.3.4/30: 6.7.8.9/1200+10\n", &ctx), 0);
+  if (check_non_null (sctx = ctx.sources))
+  {
+    check_int_equal (sctx->nreceivers, 10);
+    check_receiver (&sctx->receivers[0], "6.7.8.9", 1200, AF_INET, 1, DEFAULT_TTL);
+    if (sctx->nreceivers==10)
+    {
+      check_receiver (&sctx->receivers[9], "6.7.8.9", 1209, AF_INET, 1, DEFAULT_TTL);
+    }
+  }
+
   check_int_equal (parse_cf_string ("1.2.3.4/30: 6.7.8.9/1234\n2.3.4.5: 7.8.9.0/4321", &ctx), 0);
   check_int_equal (ctx.fork, 0);
   if (check_non_null (sctx = ctx.sources))
