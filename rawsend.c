@@ -120,7 +120,7 @@ raw_send_from_to (s, msg, msglen, saddr_generic, daddr_generic, ttl, flags)
      BSD-derivatives require host byte order, but at least OpenBSD
      since version 2.1 uses network byte order.  Linux uses network
      byte order for all IP header fields. */
-#if defined (__linux__) || (defined (__OpenBSD__) && (OpenBSD > 199702))
+#if defined (__linux__) || (defined (__OpenBSD__) && (OpenBSD > 199702)) || defined(__FreeBSD__)
   ih.ip_len = htons (length);
   ih.ip_off = htons (0);
 #else 
