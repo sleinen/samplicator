@@ -12,6 +12,8 @@ enum receiver_flags
 {
   pf_SPOOF	= 0x0001,
   pf_CHECKSUM	= 0x0002,
+  pf_SPOOF_WITH_IP	= 0x0004,
+  
 };
 
 struct samplicator_context {
@@ -34,6 +36,8 @@ struct samplicator_context {
 
   const char		       *config_file_name;
   int				config_file_lineno;
+  
+  const char *spoofed_src_addr;
 
   /* statistics */
   uint32_t			unmatched_packets;
@@ -48,6 +52,10 @@ struct receiver {
   int				freqcount;
   int				ttl;
   enum receiver_flags		flags;
+  
+  struct sockaddr_storage spoofed_src_addr;
+  socklen_t spoofed_src_addrlen;
+  
 
   /* statistics */
   uint32_t			out_packets;
