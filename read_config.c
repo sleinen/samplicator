@@ -618,11 +618,12 @@ expand_port_ranges (argc, argv, exp_argc, exp_argv)
      int *exp_argc;
      const char ***exp_argv;
 {
+  int j, k;
   *exp_argc=0;
   *exp_argv=NULL;
 
   /* expand port definition ranges */
-  for (int j=0; j<argc; j++)
+  for (j=0; j<argc; j++)
   {
       char *port_begin, *port_end=NULL;
       int just_copy=0;
@@ -658,7 +659,7 @@ expand_port_ranges (argc, argv, exp_argc, exp_argv)
              }
              while (*suffix && isdigit (*suffix))
                  suffix++;
-             for (int k=first;k<=last;k++)
+             for (k=first;k<=last;k++)
              {
                  char *newarg=(char *) malloc (strlen (argv[j]+1));
                  if (!newarg)
