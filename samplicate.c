@@ -483,6 +483,16 @@ send_pdu_to_receiver (receiver, fpdu, length, source_addr)
 			       (struct sockaddr *) &receiver->addr,
 			       receiver->ttl, rawsend_flags);
     }
+  else if(receiver->flags & pf_SPOOF_WITH_IP)
+    {
+
+      int rawsend_flags
+	= ((receiver->flags & pf_CHECKSUM) ? RAWSEND_COMPUTE_UDP_CHECKSUM : 0);
+      return raw_send_from_to (receiver->fd, fpdu, length,
+			       (struct sockaddr *) &receiver->spoofed_src_addr,
+			       (struct sockaddr *) &receiver->addr,
+			       receiver->ttl, rawsend_flags);
+    }
   else
     {
       return sendto (receiver->fd, (char*) fpdu, length, 0,
@@ -539,7 +549,7 @@ make_send_sockets (struct samplicator_context *ctx)
 	  struct receiver *receiver = &sctx->receivers[i];
 	  int af = receiver->addr.ss_family;
 	  int af_index = af == AF_INET ? 0 : 1;
-	  int spoof_p = receiver->flags & pf_SPOOF;
+	  int spoof_p = receiver->flags & pf_SPOOF || receiver->flags & pf_SPOOF_WITH_IP;
 
 	  if (socks[spoof_p][af_index] == -1)
 	    {
