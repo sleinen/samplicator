@@ -205,7 +205,8 @@ make_raw_udp_socket (sockbuflen, af)
 		   sockbuflen, strerror (errno));
 	}
       int so_broadcast = 1;
-      if(setsockopt(s,SOL_SOCKET,SO_BROADCAST,&so_broadcast,sizeof so_broadcast) < 0)
+      if(setsockopt(s,SOL_SOCKET,SO_BROADCAST,
+         &so_broadcast,sizeof so_broadcast) == -1)
       {
         fprintf (stderr, "setsockopt(SO_BROADCAST,%ld): %s\n",
                          sockbuflen, strerror (errno));
