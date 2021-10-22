@@ -493,8 +493,28 @@ parse_receiver (struct receiver *receiverp,
   char portspec[NI_MAXSERV];
   struct addrinfo hints, *res;
   int result;
-
+  
   receiverp->flags = ctx->default_receiver_flags;
+
+  if(receiverp->flags & pf_SPOOF_WITH_IP) {
+
+    init_hints_from_preferences (&hints, ctx);
+    {
+      result = getaddrinfo (ctx->spoofed_src_addr, NULL, &hints, &res);
+
+      if (result != 0)
+        {
+  	return parse_error (ctx, "Parsing IP address (%s) failed", ctx->spoofed_src_addr);
+        }
+        
+      memcpy (&(receiverp->spoofed_src_addr), res->ai_addr, res->ai_addrlen);
+      receiverp->spoofed_src_addrlen = res->ai_addrlen;
+      freeaddrinfo(res);
+    }
+    
+      
+  }
+    
   receiverp->freqcount = 0;
   receiverp->freq = 1;
   receiverp->ttl = DEFAULT_TTL; 
@@ -769,6 +789,9 @@ parse_args (argc, argv, ctx)
   ctx->pid_file = (const char *) 0;
   ctx->sources = 0;
   ctx->default_receiver_flags = pf_CHECKSUM;
+  
+  ctx->spoofed_src_addr = NULL;
+  
   /* assume that command-line supplied receivers want to get all data */
   sctx->source.ss_family = AF_INET;
   ((struct sockaddr_in *) &sctx->source)->sin_addr.s_addr = 0;
@@ -777,7 +800,7 @@ parse_args (argc, argv, ctx)
   sctx->tx_delay = 0;
 
   optind = 1;
-  while ((i = getopt (argc, (char **) argv, "hu:b:d:t:m:p:s:x:c:fSn46")) != -1)
+  while ((i = getopt (argc, (char **) argv, "P:hu:b:d:t:m:p:s:x:c:fSn46")) != -1)
     {
       switch (i)
 	{
@@ -808,9 +831,13 @@ parse_args (argc, argv, ctx)
 	case 'x': /* transmit delay */
 	  sctx->tx_delay = atoi (optarg);
 	  break;
+  case 'P':
+    ctx->default_receiver_flags |= pf_SPOOF_WITH_IP;
+    ctx->spoofed_src_addr = optarg;
+    break;
 	case 'S': /* spoof */
-	  ctx->default_receiver_flags |= pf_SPOOF;
-	  break;
+    ctx->default_receiver_flags |= pf_SPOOF;
+    break;
 	case 'c': /* config file */
 	  if (read_cf_file (optarg, ctx) != 0)
 	    {
@@ -869,8 +896,9 @@ Supported options:\n\
   -t <timeout_ms>          Exit with RC 5 if no data is received for this\n\
                            amount of milliseconds\n\
   -b <size>                set socket buffer size (default %lu)\n\
-  -n			   don't compute UDP checksum (leave at 0)\n\
+  -n                       don't compute UDP checksum (leave at 0)\n\
   -S                       maintain (spoof) source addresses\n\
+  -P <address>             spoof source address with specified address\n\
   -x <delay>               transmit delay in microseconds\n\
   -c <configfile>          specify a config file to read\n\
   -f                       fork program into background\n\
