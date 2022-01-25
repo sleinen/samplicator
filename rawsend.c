@@ -58,6 +58,11 @@ static unsigned ip_header_checksum (const void * header);
 static uint16_t udp_sum_calc (uint16_t, uint32_t, uint16_t, uint32_t, uint16_t, const void *);
 static uint16_t udp_sum_calc_v6 (struct in6_addr, uint16_t, struct in6_addr, uint16_t, uint16_t, const char *);
 
+struct in6_pktinfo {
+        struct in6_addr ipi6_addr;
+        int             ipi6_ifindex;
+};
+
 int
 raw_send_from_to (s, msg, msglen, saddr_generic, daddr_generic, ttl, flags)
      int s;
