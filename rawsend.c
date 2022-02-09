@@ -268,6 +268,8 @@ make_raw_udp_socket (sockbuflen, af)
 			  }
 	  }
 #endif /* IP_HDRINCL */  
+  int on = 1;
+  setsockopt(s, IPPROTO_IP, IP_FREEBIND, (char *) &on, sizeof(on)) ;
   return s;
 }
 
