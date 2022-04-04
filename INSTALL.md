@@ -49,7 +49,7 @@ Run Samplicator in Docker
 --------------------------
 Example:
 ```bash
-docker run -td sleinen/samplicator \
-	-e samplicator_port=1700 \
-	-e samplicator_arguments='192.168.1.2/1700 192.168.1.16/1700 192.168.2.23/1700'
+docker run -e samplicator_port=1700 \
+	-e samplicator_arguments='192.168.1.2/1700 192.168.1.16/1700 192.168.2.23/1700' \
+	--name samplicator -td sleinen/samplicator
 ```
