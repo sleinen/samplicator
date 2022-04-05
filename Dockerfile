@@ -17,7 +17,7 @@ RUN apt-get update && apt-get -y full-upgrade
 RUN apt-get install -y git cmake make htop wget systemctl gcc curl gpg automake
 
 # Install Samplicator
-RUN git clone https://github.com/sleinen/samplicator.git
+RUN git clone https://github.com/simeononsecurity/samplicator.git
 RUN cd ./samplicator && bash ./autogen.sh
 RUN cd /samplicator && ./configure
 RUN cd /samplicator && make
