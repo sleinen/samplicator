@@ -23,6 +23,6 @@ RUN cd /samplicator && ./configure
 RUN cd /samplicator && make
 RUN cd /samplicator && make install
 
-RUN echo 'samplicate -p ${samplicator_port} ${samplicator_arguments}'  > ./samplicator.sh
-
+RUN cd /samplicator/ && chmod +x ./dockersetup.sh
+RUN cd /samplicator/ && cat ./dockersetup.sh
 CMD ["/bin/bash", "./samplicator.sh"]
