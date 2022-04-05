@@ -28,4 +28,4 @@ jobs:
         with:
           context: .
           push: true
-          tags: simeononsecurity/helium_diy_middleman:latest
+          tags: simeononsecurity/samplicator:latest
