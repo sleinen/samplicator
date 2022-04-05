@@ -25,4 +25,4 @@ RUN cd /samplicator && make install
 
 RUN cd /samplicator/ && chmod +x ./dockersetup.sh
 RUN cd /samplicator/ && cat ./dockersetup.sh
-CMD ["/bin/bash", "./samplicator.sh"]
+CMD ["/bin/bash", "/samplicator/dockersetup.sh"]
