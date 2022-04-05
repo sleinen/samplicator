@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag simeononsecurity/helium_diy_middleman:latest
+      run: docker build . --file Dockerfile --tag simeononsecurity/samplicator:latest
     -
         name: Login to DockerHub
         uses: docker/login-action@v1
