@@ -8,7 +8,7 @@ ENV container docker
 #ENV samplicator_arguments='192.168.1.1/1700'
 
 # Open Samplicator Listening Ports
-EXPOSE ${samplicator_port}:${samplicator_port}/udp
+#EXPOSE ${samplicator_port}:${samplicator_port}/udp
 
 # Update Packages
 RUN apt-get update && apt-get -y full-upgrade
