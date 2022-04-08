@@ -14,7 +14,7 @@ EXPOSE ${samplicator_port}:${samplicator_port}/udp
 RUN apt-get update && apt-get -y full-upgrade
 
 # Install Supporting Software
-RUN apt-get install -y git cmake make htop wget systemctl gcc curl gpg automake
+RUN apt-get install -y git cmake make htop wget systemctl gcc curl gpg automake autogen
 
 # Install Samplicator
 RUN git clone https://github.com/simeononsecurity/samplicator.git
