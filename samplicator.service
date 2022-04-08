@@ -12,7 +12,7 @@ After=network.target
 
 [Service]
 Type=forking
-ExecStart=/usr/local/bin/samplicator -S -c /opt/samplicator/etc/samplicator.conf -p 162 -d 0 -f
+ExecStart=/usr/local/bin/samplicate -S -c /opt/samplicator/etc/samplicator.conf -p 162 -d 0 -f
 
 [Install]
 WantedBy=multi-user.target
