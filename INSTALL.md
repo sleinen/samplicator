@@ -52,6 +52,5 @@ Example:
 docker run \
 	--net='bridge' \
     	-p '1700:1700'/udp \
-	-e samplicator_arguments='' \
 	--name samplicator -td sleinen/samplicator -S 192.168.1.10 -x 10 -p 1700 192.168.1.11/1700 192.168.1.12/1700
 ```
