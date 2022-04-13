@@ -11,7 +11,7 @@ ENV container docker
 #EXPOSE ${samplicator_port}:${samplicator_port}/udp
 
 # Update Packages
-RUN apt-get update && apt-get -y full-upgrade
+RUN apt-get update && apt-get install -y apt-utils && apt-get -y -f -m --show-progress full-upgrade
 
 # Install Supporting Software
 RUN apt-get install -y git cmake make htop wget systemctl gcc curl gpg automake autogen
