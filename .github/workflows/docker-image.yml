@@ -43,3 +43,14 @@ jobs:
           context: .
           push: true
           tags: simeononsecurity/samplicator:latest
+          
+    - name: Login to GitHub Container Registry
+      uses: docker/login-action@v1
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ secrets.PAT_TOKEN }}
+
+    - name: Build the simeononsecurity/samplicator:latest Docker image for Github Registry
+      run: docker run --rm --privileged multiarch/qemu-user-static --reset -p yes && docker buildx build --platform linux/amd64,linux/armhf,linux/arm64 -t ghcr.io/simeononsecurity/samplicator:latest --progress=plain --push .
+
