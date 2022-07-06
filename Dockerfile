@@ -1,5 +1,10 @@
 #https://github.com/sleinen/samplicator
 FROM ubuntu:latest
+
+LABEL org.opencontainers.image.source="https://github.com/simeononsecurity/samplicator"
+LABEL org.opencontainers.image.description="Send copies of (UDP) datagrams to multiple receivers, with optional sampling and spoofing"
+LABEL org.opencontainers.image.authors="simeononsecurity"
+
 ENV DEBIAN_FRONTEND noninteractive
 ENV container docker
 
