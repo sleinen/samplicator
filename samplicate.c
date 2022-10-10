@@ -185,7 +185,7 @@ make_recv_socket (ctx)
 	  fprintf (stderr, "socket(): %s\n", strerror (errno));
 	  break;
 	}
-      if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_RCVBUF,
+      if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_REUSEPORT, SO_RCVBUF,
 		      (char *) &ctx->sockbuflen, sizeof ctx->sockbuflen) == -1)
 	{
 	  fprintf (stderr, "Warning: setsockopt(SO_RCVBUF,%ld) failed: %s\n",
