@@ -169,6 +169,7 @@ make_recv_socket (ctx)
      struct samplicator_context *ctx;
 {
   struct addrinfo hints, *res;
+  int so_reuseport_val = 1;
   int result;
 
   init_hints_from_preferences (&hints, ctx);
@@ -185,10 +186,16 @@ make_recv_socket (ctx)
 	  fprintf (stderr, "socket(): %s\n", strerror (errno));
 	  break;
 	}
-      if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_REUSEPORT, SO_RCVBUF,
+      if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_RCVBUF,
 		      (char *) &ctx->sockbuflen, sizeof ctx->sockbuflen) == -1)
 	{
 	  fprintf (stderr, "Warning: setsockopt(SO_RCVBUF,%ld) failed: %s\n",
+		   ctx->sockbuflen, strerror (errno));
+	}
+	  if (setsockopt (ctx->fsockfd, SOL_SOCKET, SO_REUSEPORT,
+		      &so_reuseport_val, sizeof(so_reuseport_val)) != 0)
+	{
+	  fprintf (stderr, "Warning: setsockopt(SO_REUSEPORT,%ld) failed: %s\n",
 		   ctx->sockbuflen, strerror (errno));
 	}
       if (bind (ctx->fsockfd,
