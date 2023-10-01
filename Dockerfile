@@ -16,10 +16,10 @@ ENV container docker
 #EXPOSE ${samplicator_port}:${samplicator_port}/udp
 
 # Update Packages
-RUN apt-get update && apt-get install -y apt-utils && apt-get -y -f -m --show-progress full-upgrade
+RUN apt-get update && apt-get install -y --no-install-recommends apt-utils && apt-get -y -f -m --show-progress --no-install-recommends full-upgrade
 
 # Install Supporting Software
-RUN apt-get install -y git cmake make htop wget systemctl gcc curl gpg automake autogen
+RUN apt-get install -y --no-install-recommends git cmake make htop wget systemctl gcc curl gpg automake autogen
 
 # Install Samplicator
 RUN git clone https://github.com/simeononsecurity/samplicator.git
@@ -31,4 +31,8 @@ RUN cd /samplicator && make install
 #RUN cd /samplicator/ && chmod +x ./dockersetup.sh
 #RUN cd /samplicator/ && cat ./dockersetup.sh
 #CMD ["/bin/bash", "/samplicator/dockersetup.sh"]
+
+# Clean APT
+RUN apt-get clean && rm -rf /var/lib/apt/lists/*
+
 ENTRYPOINT ["samplicate"]
