@@ -44,3 +44,13 @@ Then install and start the new service. On my CentOS 7.2, it looks like this:
 	cp samplicator.service /etc/systemd/system/samplicator.service
 	systemctl daemon-reload
 	systemctl start samplicator.service
+	
+Run Samplicator in Docker
+--------------------------
+Example:
+```bash
+docker run \
+	--net='bridge' \
+    	-p '1700:1700'/udp \
+	--name samplicator -td sleinen/samplicator -S 192.168.1.10 -x 10 -p 1700 192.168.1.11/1700 192.168.1.12/1700
+```
