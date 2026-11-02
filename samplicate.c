@@ -375,6 +375,11 @@ samplicate (ctx)
 	  fprintf (stderr, "received %d bytes from %s:%s\n", n, host, serv);
 	}
 
+	if (ctx->debug >= 2)
+	{
+    	fprintf (stderr, "Received data:  %s\n", fpdu);
+	}
+
       for (sctx = ctx->sources; sctx != NULL; sctx = sctx->next)
 	{
 	  if (match_addr_p ((struct sockaddr *) &remote_address,
